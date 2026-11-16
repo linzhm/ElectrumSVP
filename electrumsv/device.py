@@ -262,7 +262,25 @@ class DeviceMgr:
         devices = self.scan_devices()
         xpub = keystore.xpub
         derivation = keystore.get_derivation()
-        client = self._client_by_xpub(plugin, xpub, derivation, handler, devices)
+        selected = self.hardware.selected_device
+        if selected is not None:
+            if selected.kind != plugin.name:
+                raise DeviceUnpairableError(_('The selected device uses a different hardware '
+                    'adapter. Select a compatible device and retry.'))
+            device = next((device for device in devices if device.id_ == selected.device.id_), None)
+            if device is None:
+                raise DeviceUnpairableError(_('The selected device is unavailable. Refresh and retry.'))
+            client = self._create_client(device, handler, plugin)
+            if client is None:
+                raise DeviceUnpairableError(_('The selected device is unavailable. Refresh and retry.'))
+            client.handler = handler
+            key = client.get_master_public_key(derivation)
+            if key is None or key.to_extended_key_string() != xpub:
+                raise DeviceUnpairableError(_('The selected device cannot provide this account key. '
+                    'Check the derivation path and passphrase, or select another device.'))
+            self.pair_xpub(xpub, device.id_)
+        else:
+            client = self._client_by_xpub(plugin, xpub, derivation, handler, devices)
         if client is None and force_pair:
             info = self.select_device(plugin, handler, keystore, devices)
             client = self._force_pair_xpub(plugin, handler, info, xpub, derivation, devices)

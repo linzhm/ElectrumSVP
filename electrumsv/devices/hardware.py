@@ -5,7 +5,7 @@ checks and the rules for admitting device results into a wallet. I/O methods run
 worker; presentation handlers must be constructed on the GUI thread by the caller.
 """
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from importlib import import_module
 from functools import wraps
 import threading
@@ -86,12 +86,15 @@ class DeviceStatus:
     app: str = ''
     version: str = ''
     device: Any = None
+    verified_xpubs: Tuple[str, ...] = ()
 
 
 class HardwareWallets:
     def __init__(self, manager):
         self.manager = manager
         self._operation_lock = threading.RLock()
+        # A session-only transport choice, never evidence that it controls an xpub.
+        self.selected_device = None
 
     def add_available_parents(self, stores, tx, context, lookup):
         """Enrich optional verification from local data; never fetch unbounded network parents.
@@ -142,9 +145,58 @@ class HardwareWallets:
                     try:
                         rows.append(plugin.get_device_status(device))
                     except Exception as exc:
-                        rows.append(DeviceStatus(kind, backend.label, 'unavailable', str(exc)))
+                        rows.append(DeviceStatus(kind, backend.label, 'unavailable', str(exc),
+                            device=device))
             except Exception as exc:
                 rows.append(DeviceStatus(kind, backend.label, 'unavailable', str(exc)))
+        return tuple(rows)
+
+    @device_operation
+    def check_device(self, status, stores, handler):
+        """Check transport/app and requested public keys, without committing a selection."""
+        if status.device is None:
+            raise HardwareError(_('Select a detected device.'))
+        plugin = self.plugin(status.kind)
+        device = next((device for device in plugin.enumerate_devices()
+            if device.id_ == status.device.id_), None)
+        if device is None:
+            raise HardwareError(_('The selected device is unavailable. Refresh and retry.'))
+        client = self.manager._create_client(device, handler, plugin)
+        if client is None:
+            raise HardwareError(_('The selected device is unavailable. Refresh and retry.'))
+        client.handler = handler
+        plugin.check_connection(client)
+        matched = []
+        for store in stores:
+            if getattr(store, 'hw_type', None) == status.kind:
+                key = client.get_master_public_key(store.get_derivation())
+                if key is not None and key.to_extended_key_string() == store.xpub:
+                    matched.append(store.xpub)
+        checked = plugin.get_device_status(device)
+        if checked.state not in ('connected', 'bch_ready'):
+            raise HardwareError(checked.detail)
+        if not matched:
+            raise HardwareError(_('This device does not match the current account. '
+                'Check the selected device, account path and passphrase.'))
+        return replace(checked, verified_xpubs=tuple(matched))
+
+    @device_operation
+    def inspect(self, stores):
+        """Poll candidates; only already-open Nano BCH apps permit unattended key reads.
+
+        Other adapters may need PIN/passphrase dialogs. They are checked through
+        the explicit Connect action, never by prompting from a background poll.
+        """
+        rows = []
+        for status in self.status():
+            if status.device is not None and status.kind == 'ledger' and \
+                    status.state == 'bch_ready' and any(
+                        getattr(store, 'hw_type', None) == status.kind for store in stores):
+                try:
+                    status = self.check_device(status, stores, None)
+                except Exception as exc:
+                    status = replace(status, state='unavailable', detail=str(exc), verified_xpubs=())
+            rows.append(status)
         return tuple(rows)
 
     @device_operation

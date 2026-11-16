@@ -219,3 +219,52 @@ def test_optional_parents_are_local_bounded_and_missing_does_not_block_review():
     lookup.reset_mock()
     support.add_available_parents([store], tx, context, lookup)
     lookup.assert_not_called()
+
+
+@pytest.mark.parametrize('outcome', ['match', 'wrong_key', 'removed', 'wrong_brand'])
+def test_explicit_transport_choice_never_falls_back_and_rechecks_xpub(outcome):
+    from electrumsv.devices.hardware import DeviceStatus
+    manager = DeviceMgr()
+    device = Device(b'usb', 0, 'chosen', (0x2c97, 0x5000), 0xffa0, 'hid')
+    key = BIP32PrivateKey.from_seed(bytes(range(16)), Net.COIN).public_key
+    client = Mock()
+    client.get_master_public_key.return_value = key.child_safe(1) if outcome == 'wrong_key' else key
+    plugin = Mock(libraries_available=True); plugin.name = 'ledger'
+    store = SimpleNamespace(plugin=plugin, handler=Mock(), xpub=key.to_extended_key_string(),
+        get_derivation=lambda: "m/44'/0'/1'")
+    manager.scan_devices = Mock(return_value=[] if outcome == 'removed' else [device])
+    manager._create_client = Mock(return_value=client)
+    manager.select_device = Mock(side_effect=AssertionError('must not fall back'))
+    manager.hardware.selected_device = DeviceStatus(
+        'trezor' if outcome == 'wrong_brand' else 'ledger', 'Chosen device', 'bch_ready', '',
+        device=device, verified_xpubs=(store.xpub,))
+    if outcome == 'match':
+        assert manager.client_for_keystore(plugin, store, True) is client
+        client.get_master_public_key.assert_called_once_with("m/44'/0'/1'")
+        assert manager.xpub_id(store.xpub) == 'chosen'
+    else:
+        with pytest.raises(DeviceUnpairableError):
+            manager.client_for_keystore(plugin, store, True)
+        assert manager.xpub_id(store.xpub) is None
+    manager.select_device.assert_not_called()
+
+
+def test_connection_check_does_not_commit_transport_or_key_pairing():
+    from electrumsv.devices.hardware import DeviceStatus
+    manager = DeviceMgr()
+    device = Device(b'usb', 0, 'candidate', (0x2c97, 0x5000), 0xffa0, 'hid')
+    key = BIP32PrivateKey.from_seed(bytes(range(16)), Net.COIN).public_key
+    plugin, client = Mock(libraries_available=True), Mock()
+    manager.get_plugin = Mock(return_value=plugin)
+    manager._create_client = Mock(return_value=client)
+    plugin.enumerate_devices.return_value = [device]
+    status = DeviceStatus('ledger', 'Nano S Plus', 'bch_ready', '', device=device)
+    plugin.get_device_status.return_value = status
+    client.get_master_public_key.return_value = key
+    store = SimpleNamespace(hw_type='ledger', xpub=key.to_extended_key_string(),
+        get_derivation=lambda: "m/44'/0'/0'")
+    checked = manager.hardware.check_device(status, [store], Mock())
+    assert checked.verified_xpubs == (store.xpub,)
+    assert not manager.xpub_ids
+    assert manager.hardware.selected_device is None
+    client.sign_transaction.assert_not_called()

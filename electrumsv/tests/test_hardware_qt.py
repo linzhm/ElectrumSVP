@@ -127,32 +127,109 @@ def test_message_hash_preserves_spaces_newlines_and_unicode(gui):
         assert review.digest.text() == hashlib.sha256(text.encode('utf8')).hexdigest().upper()
 
 
-def test_status_multiple_devices_require_selection_and_check_selected_account(gui, monkeypatch):
+def test_candidates_require_connection_check_before_selection(gui, monkeypatch):
+    from dataclasses import replace
+    from PyQt5.QtCore import Qt
     from electrumsv.devices.hardware import DeviceStatus
     from electrumsv.gui.qt import hardware
     parent = QWidget()
-    store = SimpleNamespace(hw_type='ledger', get_derivation=lambda: "m/44'/0'/1'")
-    support = Mock()
-    support.status.return_value = [DeviceStatus('ledger', 'Nano S', 'locked', 'Unlock Nano S',
-        device=SimpleNamespace(id_='s')), DeviceStatus('ledger', 'Nano X', 'bch_ready', 'BCH ready',
-        app='Bitcoin Cash', version='2.4.14', device=SimpleNamespace(id_='x'))]
+    store = SimpleNamespace(hw_type='ledger', xpub='test-xpub', get_derivation=lambda: "m/44'/0'/1'")
+    support = Mock(selected_device=None)
+    nano = DeviceStatus('ledger', 'Nano X', 'bch_ready', 'BCH ready',
+        app='Bitcoin Cash', version='2.4.14', device=SimpleNamespace(id_='x'))
+    support.inspect.return_value = [DeviceStatus('ledger', 'Nano S', 'locked', 'Unlock Nano S',
+        device=SimpleNamespace(id_='s')), nano,
+        DeviceStatus('trezor', 'Trezor', 'not_detected', 'Not connected'),
+        DeviceStatus('keepkey', 'KeepKey', 'connected', 'Connected', device=SimpleNamespace(id_='k'))]
+    support.check_device.return_value = replace(nano, verified_xpubs=('test-xpub',))
+    def run(task, on_done):
+        future = Future()
+        try:
+            future.set_result(task())
+        except Exception as exc:
+            future.set_exception(exc)
+        on_done(future)
+    app_state.app = SimpleNamespace(run_in_thread=run)
+
     app_state.device_manager.hardware = support
     monkeypatch.setattr(hardware, 'run_device_operation', lambda parent, task: task())
     dialog = hardware.HardwareWalletDialog(parent, [store])
     dialog.refresh()
     dialog.show()
     gui.processEvents()
+    assert dialog.devices.topLevelItemCount() == 3  # Detected only, regardless of account brand.
     assert dialog.devices.currentItem() is None
-    assert not dialog.verify_button.isEnabled()
-    dialog.devices.setCurrentItem(dialog.devices.topLevelItem(1))
-    assert dialog.verify_button.isEnabled()
-    dialog.verify_selected()
-    assert support.verify_device.call_args.args[0].device.id_ == 'x'
-    assert support.verify_device.call_args.args[1] == [store]
-    assert 'Matches' in dialog.details.text()
-    support.verify_device.side_effect = UserCancelled()
-    dialog.verify_selected()
+    assert not dialog.select_button.isEnabled()
+    assert not dialog.connect_button.isEnabled()
+    item = dialog.devices.topLevelItem(1)
+    dialog.devices.setCurrentItem(item)
+    assert dialog.connect_button.isEnabled()
+    assert not dialog.select_button.isEnabled()
+    assert item.checkState(0) == Qt.Unchecked
+    dialog.connect_selected()
+    assert support.check_device.call_args.args[0].device.id_ == 'x'
+    assert support.check_device.call_args.args[1] == (store,)
+    assert item.checkState(0) == Qt.Checked
+    assert dialog.select_button.isEnabled()
+    assert support.selected_device is None  # Connect does not commit a transport choice.
+    dialog.select_checked()
+    assert support.selected_device.device.id_ == 'x'
+    dialog = hardware.HardwareWalletDialog(parent, [store])
+    dialog.refresh()
+    dialog.devices.setCurrentItem(dialog.devices.topLevelItem(0))
+    support.check_device.side_effect = UserCancelled()
+    dialog.connect_selected()
+    assert not dialog.select_button.isEnabled()
     assert 'cancelled' in dialog.details.text()
+    dialog.close()
+
+
+def test_live_status_drops_old_account_match_and_ignores_late_scan(gui):
+    from dataclasses import replace
+    from PyQt5.QtWidgets import QAction
+    from electrumsv.devices.hardware import DeviceStatus
+    from electrumsv.gui.qt.hardware_status import HardwareStatusMonitor, availability
+    class Window(QWidget):
+        account_change_signal = pyqtSignal(object, object)
+    window = Window()
+    jobs = []
+    app_state.app = SimpleNamespace(run_in_thread=lambda task, on_done: jobs.append((task, on_done)))
+    monitor = HardwareStatusMonitor(window, QAction(window))
+    gui.processEvents()
+    row = DeviceStatus('ledger', 'Nano X', 'bch_ready', '', device=SimpleNamespace(id_='x'),
+        verified_xpubs=('old-key',))
+    monitor.rows = (row,)
+    assert availability(monitor.rows) == 'available'
+    new_store = SimpleNamespace(hw_type='ledger', xpub='new-key', get_derivation=lambda: "m/44'/0'/1'")
+    monitor.account_changed(2, SimpleNamespace(get_keystores=lambda: [new_store]))
+    assert availability(monitor.rows) == 'unavailable'
+    future = Future(); future.set_result((row,))
+    jobs[0][1](future)
+    assert not monitor.rows[0].verified_xpubs  # Late old-account read cannot restore green.
+    assert availability(()) == 'none'
+    assert availability((replace(row, state='locked', verified_xpubs=()),)) == 'unavailable'
+    monitor._timer.stop()
+    monitor.pause()
+    window.close()
+
+
+def test_explicit_connect_waits_for_background_scan_to_release_usb(gui):
+    from PyQt5.QtWidgets import QAction
+    from electrumsv.gui.qt.hardware_status import HardwareStatusMonitor
+    class Window(QWidget):
+        account_change_signal = pyqtSignal(object, object)
+    window, jobs, started = Window(), [], []
+    app_state.app = SimpleNamespace(run_in_thread=lambda task, on_done: jobs.append((task, on_done)))
+    monitor = HardwareStatusMonitor(window, QAction(window))
+    gui.processEvents()
+    monitor.pause()
+    monitor.when_idle(lambda: started.append(True))
+    assert not started
+    future = Future(); future.set_result(())
+    jobs[0][1](future)
+    assert started == [True]
+    monitor._timer.stop()
+    window.close()
 
 
 def test_cancelled_password_restores_transaction_signing_controls(gui):
@@ -201,3 +278,27 @@ def test_many_input_progress_updates_reuse_one_ledger_dialog(gui):
     assert '00:00:' in handler._elapsed_label.text()
     handler.clear_dialog()
     assert not handler._operation_timer.isActive()
+
+
+def test_picker_can_close_during_connection_without_selecting_late_result(gui):
+    from dataclasses import replace
+    from PyQt5.QtCore import Qt
+    from electrumsv.devices.hardware import DeviceStatus
+    from electrumsv.gui.qt.hardware import HardwareWalletDialog
+    pending = []
+    app_state.app = SimpleNamespace(run_in_thread=lambda task, on_done: pending.append(on_done))
+    support = Mock(selected_device=None)
+    app_state.device_manager.hardware = support
+    parent = QWidget()
+    dialog = HardwareWalletDialog(parent)
+    row = DeviceStatus('ledger', 'Nano X', 'bch_ready', '', device=SimpleNamespace(id_='x'))
+    dialog.show_rows([row]); dialog.show()
+    dialog.devices.setCurrentItem(dialog.devices.topLevelItem(0))
+    dialog.connect_selected()
+    assert dialog.windowModality() == Qt.NonModal
+    dialog.reject()
+    assert not dialog.isVisible()
+    future = Future(); future.set_result(replace(row, verified_xpubs=('key',)))
+    pending[0](future)
+    assert support.selected_device is None
+    assert not dialog.select_button.isEnabled()

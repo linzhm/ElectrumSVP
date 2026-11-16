@@ -1,7 +1,9 @@
 """Run device I/O while keeping Qt handlers and dialogs on the GUI thread."""
+from dataclasses import replace
+from PyQt5 import sip
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtWidgets import (QAction, QLabel, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTreeWidget, QTreeWidgetItem, QLineEdit, QWidget, QCheckBox)
+    QTreeWidget, QTreeWidgetItem, QLineEdit, QWidget, QCheckBox, QToolButton, QPlainTextEdit, QDialog)
 
 from electrumsv.app_state import app_state
 from electrumsv.exceptions import UserCancelled
@@ -10,11 +12,9 @@ from .util import WindowModalDialog, read_QIcon
 
 
 def show_unavailable_hardware(window, keystore):
-    action = QAction(read_QIcon('icons8-usb-disconnected-80.png'),
-        keystore.label or keystore.hw_type, window)
-    action.setToolTip(_('Hardware wallet dependencies unavailable'))
-    action.triggered.connect(lambda: show_hardware_wallets(window))
-    window.add_toolbar_action(action)
+    from .hardware_status import hardware_toolbar_action
+    hardware_toolbar_action(window)
+
 
 
 class DeviceOperationDialog(WindowModalDialog):
@@ -68,108 +68,269 @@ def run_device_operation(parent, operation):
     return DeviceOperationDialog(parent, operation).run()
 
 
-class HardwareWalletDialog(WindowModalDialog):
-    """Connection diagnostics and explicit account-key comparison; never signs or installs."""
-    def __init__(self, parent, stores=()):
-        super().__init__(parent, _('Hardware wallets'))
+class HardwareWalletDialog(QDialog):
+    """Candidates → Connect/check → Select. A highlighted row alone is not a selection."""
+    def __init__(self, parent, stores=(), monitor=None):
+        super().__init__(parent, Qt.Window | Qt.WindowTitleHint |
+            Qt.WindowSystemMenuHint | Qt.WindowCloseButtonHint)
+        self.setWindowTitle(_('Hardware wallets'))
+        self._closed = False
+        self._connecting = False
+        self.finished.connect(self._on_finished)
         self.stores = stores
-        self.setMinimumSize(700, 400)
+        self.monitor = monitor
+        self._checked = None
+        self._loading = False
+        self.setMinimumSize(620, 360)
+        self.resize(700, 420)
         layout = QVBoxLayout(self)
-        intro = QLabel(_('To add an account, choose Add account → Connect hardware wallet. '
-            'For an existing account, use its Keys tab to display an address or sign a message.'))
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+        intro = QLabel(_('Choose a detected device, connect it, then select it after the account key check passes.'))
         intro.setWordWrap(True)
         layout.addWidget(intro)
-        paths = [store.get_derivation() for store in stores if hasattr(store, 'hw_type')]
-        account_note = QLabel(_('Current account paths: {}').format(', '.join(paths)) if paths
-            else _('No hardware account is selected. Connection status is available below.'))
-        account_note.setTextFormat(Qt.PlainText)
-        account_note.setWordWrap(True)
-        layout.addWidget(account_note)
         self.devices = QTreeWidget()
+        self.devices.setObjectName('hardwareDevices')
         self.devices.setHeaderLabels([_('Device'), _('Status'), _('Application / version')])
         self.devices.setRootIsDecorated(False)
+        self.devices.setUniformRowHeights(True)
         self.devices.currentItemChanged.connect(self._selected)
         layout.addWidget(self.devices)
-        self.details = QLabel(_('Refresh to read connection status. This does not sign anything.'))
+        self.details = QLabel(_('Connect and unlock a hardware wallet to begin.'))
         self.details.setTextFormat(Qt.PlainText)
         self.details.setWordWrap(True)
+        self.details.setMinimumHeight(48)
         layout.addWidget(self.details)
+        self.diagnostics_toggle = QToolButton()
+        self.diagnostics_toggle.setText(_('Connection details'))
+        self.diagnostics_toggle.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self.diagnostics_toggle.setArrowType(Qt.RightArrow)
+        self.diagnostics_toggle.setCheckable(True)
+        layout.addWidget(self.diagnostics_toggle)
+        self.diagnostics = QPlainTextEdit()
+        self.diagnostics.setReadOnly(True)
+        self.diagnostics.setMaximumHeight(100)
+        self.diagnostics.hide()
+        self.diagnostics_toggle.toggled.connect(self._toggle_diagnostics)
+        layout.addWidget(self.diagnostics)
         buttons = QHBoxLayout()
         self.refresh_button = QPushButton(_('Refresh'))
+        self.refresh_button.setAutoDefault(False)
         self.refresh_button.clicked.connect(self.refresh)
         buttons.addWidget(self.refresh_button)
-        self.verify_button = QPushButton(_('Connect and check current account'))
-        self.verify_button.setEnabled(False)
-        self.verify_button.clicked.connect(self.verify_selected)
-        buttons.addWidget(self.verify_button)
+        self.connect_button = QPushButton(_('Connect'))
+        self.connect_button.setEnabled(False)
+        self.connect_button.setAutoDefault(False)
+        self.connect_button.clicked.connect(self.connect_selected)
+        buttons.addWidget(self.connect_button)
         buttons.addStretch(1)
-        close = QPushButton(_('Close'))
-        close.clicked.connect(self.accept)
+        close = QPushButton(_('Cancel'))
+        close.setAutoDefault(False)
+        close.clicked.connect(self.reject)
         buttons.addWidget(close)
+        self.select_button = QPushButton(_('Select'))
+        self.select_button.setDefault(True)
+        self.select_button.setEnabled(False)
+        self.select_button.clicked.connect(self.select_checked)
+        buttons.addWidget(self.select_button)
         layout.addLayout(buttons)
+        if monitor is not None:
+            monitor.changed.connect(self.show_rows)
+
+    def _toggle_diagnostics(self, shown):
+        self.diagnostics.setVisible(shown)
+        self.diagnostics_toggle.setArrowType(Qt.DownArrow if shown else Qt.RightArrow)
 
     def _selected(self, current, previous):
-        if current is not None:
-            self.details.setText(current.data(0, Qt.UserRole))
-            status = current.data(0, Qt.UserRole + 1)
-            self.verify_button.setEnabled(status.device is not None and any(
-                getattr(store, 'hw_type', None) == status.kind for store in self.stores))
-        else:
-            self.verify_button.setEnabled(False)
-
-    def verify_selected(self):
-        item = self.devices.currentItem()
-        if item is None:
+        if self._loading:
             return
-        status = item.data(0, Qt.UserRole + 1)
-        support = app_state.device_manager.hardware
-        self.details.setText(_('Unlock the selected device on its own screen. '
-            'Confirm any app-opening request. Then the account public key will be checked.'))
-        try:
-            handler = support.plugin(status.kind).create_handler(self.parent())
-            run_device_operation(self, lambda: support.verify_device(status, self.stores, handler))
-            self.details.setText(_('Matches a hardware key in the current account. '
-                'The complete account public key was checked. It will be checked again before use.'))
-        except UserCancelled:
-            self.details.setText(_('Account check cancelled. Select the device and retry.'))
-        except Exception as exc:
-            self.details.setText(str(exc))
+        status = current.data(0, Qt.UserRole) if current is not None else None
+        self._checked = status if status is not None and status.verified_xpubs else None
+        self.select_button.setEnabled(self._checked is not None)
+        self.connect_button.setEnabled(status is not None)
+        if status is not None:
+            self.details.setText(_('Account public key checked. It will be checked again before signing.')
+                if self._checked else status.detail)
+        else:
+            self.details.setText(_('Choose a device and connect it to check the account public key.'))
 
-    def refresh(self):
+    def _on_finished(self, result):
+        self._closed = True
+        if self.monitor:
+            self.monitor.changed.disconnect(self.show_rows)
+            self.monitor.resume()
+        handler = getattr(self, '_connection_handler', None)
+        if handler is not None:
+            handler.clear_dialog()
+
+    def _connection_message(self, message, on_cancel=None):
+        if not self._closed:
+            self.details.setText(message)
+
+    def connect_selected(self):
+        item = self.devices.currentItem()
+        if item is None or self._connecting:
+            return
+        status = replace(item.data(0, Qt.UserRole), verified_xpubs=())
+        self._checked = None
+        self._connecting = True
+        item.setData(0, Qt.UserRole, status)
+        item.setCheckState(0, Qt.Unchecked)
+        self.select_button.setEnabled(False)
+        self.connect_button.setEnabled(False)
+        self.devices.setEnabled(False)
+        self.refresh_button.setEnabled(False)
+        if self.monitor:
+            self.monitor.pause()
+        generation = self.monitor._generation if self.monitor else None
+        stores = tuple(self.stores)
+        support = app_state.device_manager.hardware
+        try:
+            handler = self._connection_handler = support.plugin(status.kind).create_handler(self.parent())
+            if status.kind == 'ledger':
+                # Show app-opening progress inline, so the picker stays dismissible.
+                handler.message_signal.disconnect()
+                handler.message_signal.connect(self._connection_message)
+        except Exception as exc:
+            self._connecting = False
+            self.devices.setEnabled(True)
+            self.refresh_button.setEnabled(True)
+            self.connect_button.setEnabled(True)
+            self.details.setText(str(exc))
+            if self.monitor:
+                self.monitor.resume()
+            return
+
+        def done(future):
+            if sip.isdeleted(self) or self._closed:
+                return
+            self._connecting = False
+            self.devices.setEnabled(True)
+            self.refresh_button.setEnabled(True)
+            self.connect_button.setEnabled(True)
+            if self.monitor and generation != self.monitor._generation:
+                self.monitor.resume()
+                self.monitor.refresh()
+                return
+            try:
+                checked = future.result()
+                item.setData(0, Qt.UserRole, checked)
+                item.setCheckState(0, Qt.Checked)
+                item.setText(1, _('Account key matches'))
+                item.setText(2, ' '.join(value for value in (checked.app, checked.version) if value))
+                self._selected(item, None)
+                if self.monitor:
+                    self.monitor.record_check(checked)
+            except UserCancelled:
+                self.details.setText(_('Connection cancelled. Select the device and retry.'))
+            except Exception as exc:
+                self.details.setText(str(exc))
+            finally:
+                if self._checked is None:
+                    item.setText(1, _('Unavailable'))
+                    if self.monitor:
+                        self.monitor.record_check(replace(status, state='unavailable',
+                            detail=self.details.text()))
+                if self.monitor:
+                    self.monitor.resume()
+
+        def start_connection():
+            if sip.isdeleted(self) or self._closed:
+                return
+            if self.monitor and generation != self.monitor._generation:
+                self._connecting = False
+                self.devices.setEnabled(True)
+                self.refresh_button.setEnabled(True)
+                self.connect_button.setEnabled(True)
+                self.monitor.resume()
+                self.monitor.refresh()
+                return
+            app_state.app.run_in_thread(
+                lambda: support.check_device(status, stores, handler), on_done=done)
+        if self.monitor:
+            self.monitor.when_idle(start_connection)
+        else:
+            start_connection()
+
+    def select_checked(self):
+        if self._checked is not None:
+            app_state.device_manager.hardware.selected_device = self._checked
+            self.accept()
+
+    def show_rows(self, rows):
+        if not self.isVisible() and self.monitor is not None:
+            return
+        if self.monitor:
+            self.stores = self.monitor.stores
+        current = self.devices.currentItem()
+        previous_id = current.data(0, Qt.UserRole).device.id_ if current else None
         states = {'not_detected': _('Not detected'), 'unavailable': _('Unavailable'),
             'connected': _('Connected; pairing unchecked'), 'locked': _('Locked'),
             'bch_ready': _('Bitcoin Cash open'), 'app_not_open': _('Open Bitcoin Cash to sign')}
+        self._loading = True
+        self.devices.clear()
+        diagnostics = []
+        for row in rows:
+            if row.device is None:
+                if row.state == 'unavailable':
+                    diagnostics.append('{}: {}'.format(row.label, row.detail))
+                continue
+            item = QTreeWidgetItem([row.label,
+                _('Account key matches') if row.verified_xpubs else states[row.state],
+                ' '.join(value for value in (row.app, row.version) if value)])
+            # The tick is a result, not a user-settable checkbox.
+            item.setFlags(item.flags() & ~Qt.ItemIsUserCheckable)
+            item.setCheckState(0, Qt.Checked if row.verified_xpubs else Qt.Unchecked)
+            item.setData(0, Qt.UserRole, row)
+            item.setToolTip(0, row.label)
+            item.setToolTip(1, row.detail)
+            self.devices.addTopLevelItem(item)
+            if row.device.id_ == previous_id:
+                self.devices.setCurrentItem(item)
+        self.devices.resizeColumnToContents(0)
+        self.devices.resizeColumnToContents(1)
+        if previous_id is None or self.devices.currentItem() is None:
+            self.devices.setCurrentItem(None)
+            self.devices.clearSelection()
+            self.refresh_button.setFocus(Qt.OtherFocusReason)
+        self.diagnostics.setPlainText('\n\n'.join(diagnostics))
+        self.diagnostics_toggle.setVisible(bool(diagnostics))
+        if not diagnostics:
+            self.diagnostics_toggle.setChecked(False)
+        self._loading = False
+        self._selected(self.devices.currentItem(), None)
+        if not self.devices.topLevelItemCount():
+            self.details.setText(_('No devices detected. Connect a hardware wallet; this list updates automatically.'))
+
+    def refresh(self):
+        if self.monitor:
+            self.monitor.refresh()
+            return
         self.refresh_button.setEnabled(False)
         try:
-            rows = run_device_operation(self, app_state.device_manager.hardware.status)
-            self.devices.clear()
-            for row in rows:
-                item = QTreeWidgetItem([row.label, states[row.state],
-                    ' '.join(value for value in (row.app, row.version) if value)])
-                item.setData(0, Qt.UserRole, row.detail)
-                item.setData(0, Qt.UserRole + 1, row)
-                self.devices.addTopLevelItem(item)
-            self.devices.resizeColumnToContents(0)
-            self.devices.resizeColumnToContents(1)
-            if len(rows) == 1:
-                self.devices.setCurrentItem(self.devices.topLevelItem(0))
-            else:
-                self.devices.setCurrentItem(None)
-                self.devices.clearSelection()
-                # Qt otherwise chooses the first row when this view receives initial focus.
-                self.refresh_button.setFocus(Qt.OtherFocusReason)
+            rows = run_device_operation(self, lambda: app_state.device_manager.hardware.inspect(self.stores))
+            self.show_rows(rows)
         except Exception as exc:
-            self.devices.clear()
             self.details.setText(str(exc))
         finally:
             self.refresh_button.setEnabled(True)
 
 
 def show_hardware_wallets(parent):
+    existing = getattr(parent, '_hardware_dialog', None)
+    if existing is not None and not sip.isdeleted(existing) and existing.isVisible():
+        existing.raise_()
+        existing.activateWindow()
+        return
     account = getattr(parent, '_account', None)
-    dialog = HardwareWalletDialog(parent, account.get_keystores() if account is not None else ())
-    QTimer.singleShot(0, dialog.refresh)
-    dialog.exec_()
+    monitor = getattr(parent, '_hardware_monitor', None)
+    dialog = HardwareWalletDialog(parent, account.get_keystores() if account is not None else (), monitor)
+    parent._hardware_dialog = dialog
+    dialog.setAttribute(Qt.WA_DeleteOnClose, True)
+    dialog.show()
+    if monitor is not None:
+        dialog.show_rows(monitor.rows)
+    dialog.refresh()
 
 
 class MessageHashReview(QWidget):

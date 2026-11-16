@@ -20,6 +20,8 @@ def test_enumerate_nano_devices(monkeypatch, product_id):
     entries = [
         dict(vendor_id=0x2c97, product_id=product_id, path=b"ledger", serial_number="test",
             interface_number=0, usage_page=0xffa0),
+        dict(vendor_id=0x2c97, product_id=product_id, path=b"fido", serial_number="test",
+            interface_number=1, usage_page=0xf1d0),
         dict(vendor_id=0x1234, product_id=product_id, path=b"other", serial_number="other",
             interface_number=0, usage_page=0xffa0),
     ]
@@ -225,3 +227,15 @@ def test_ledger_partial_signing_preserves_other_signatures(script_type, explicit
 def test_mid_signing_lock_keeps_existing_cosigner_and_discards_incomplete_device_result():
     test_ledger_partial_signing_preserves_other_signatures(
         'MULTISIG_BARE', False, True, locked_after_first=True)
+
+
+def test_status_rejects_non_wallet_interface_without_none_exchange(monkeypatch):
+    device = SimpleNamespace(product_key=(0x2c97, 0x5011), id_='fido', path=b'fido',
+        interface_number=1, usage_page=0xf1d0)
+    manager = Mock(); manager.client_lookup.return_value = None
+    monkeypatch.setattr(ledger, 'app_state', SimpleNamespace(device_manager=manager))
+    plugin = ledger.LedgerPlugin('ledger')
+    status = plugin.get_device_status(device)
+    assert status.state == 'unavailable'
+    assert 'USB interface' in status.detail
+    assert 'NoneType' not in status.detail

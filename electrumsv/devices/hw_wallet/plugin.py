@@ -118,6 +118,10 @@ class HW_PluginBase(object):
             _('USB device found. Import or select its account to verify wallet pairing. '
               'Firmware and signing readiness have not been checked.'), device=device)
 
+    def check_connection(self, client):
+        if not client.is_initialized() or not client.has_usable_connection_with_device():
+            raise RuntimeError(_('The selected device is not ready. Unlock it and retry.'))
+
 
 class LibraryFoundButUnusable(Exception):
     def __init__(self, library_version='unknown'):

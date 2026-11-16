@@ -561,7 +561,11 @@ class LedgerPlugin(HW_PluginBase):
 
     def enumerate_devices(self):
         if self.libraries_available:
-            return app_state.device_manager.find_hid_devices(self.DEVICE_IDS)
+            # Nano exposes other HID interfaces (for example FIDO/U2F). They are
+            # not extra wallets and must never enter discovery or status probes.
+            return [device for device in app_state.device_manager.find_hid_devices(self.DEVICE_IDS)
+                if device.product_key[0] != 0x2c97 or device.interface_number == 0 or
+                device.usage_page == 0xffa0]
         return []
 
     def get_device_status(self, device):
@@ -573,6 +577,8 @@ class LedgerPlugin(HW_PluginBase):
         try:
             if owned:
                 connection = self.get_btchip_device(device)
+            if connection is None:
+                raise OSError(_('This USB interface does not support Ledger wallet communication.'))
             name, version = app_info(connection)
             ready = name == 'Bitcoin Cash'
             return DeviceStatus(self.name, label, 'bch_ready' if ready else 'app_not_open',
@@ -590,6 +596,9 @@ class LedgerPlugin(HW_PluginBase):
         finally:
             if owned and connection is not None:
                 connection.close()
+
+    def check_connection(self, client):
+        client.checkDevice()
 
     def get_btchip_device(self, device):
         ledger = False

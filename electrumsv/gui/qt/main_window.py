@@ -1124,6 +1124,9 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin):
         spacer.setVisible(True)
         self.spacer_action = toolbar.addWidget(spacer)
 
+        from .hardware_status import hardware_toolbar_action
+        hardware_toolbar_action(self)
+
         log_action = QAction(read_QIcon("icons8-moleskine-80.png"), _("Log Viewer"), self)
         log_action.triggered.connect(self.app.show_log_viewer)
         toolbar.addAction(log_action)
