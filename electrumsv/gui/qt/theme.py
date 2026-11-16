@@ -605,7 +605,7 @@ PINK_THEME = """
         border: 1px solid #c79aaa;
         border-radius: 3px;
         padding: 3px;
-        selection-background-color: #bd4f7a;
+        selection-background-color: #9e3f68;
         selection-color: #ffffff;
     }
 
@@ -635,7 +635,7 @@ PINK_THEME = """
         background-color: #f0d7e1;
         color: #30252c;
         border: 1px solid #c79aaa;
-        selection-background-color: #bd4f7a;
+        selection-background-color: #9e3f68;
         selection-color: #ffffff;
         outline: none;
     }
@@ -647,7 +647,7 @@ PINK_THEME = """
     }
 
     QComboBox QAbstractItemView::item:selected {
-        background-color: #bd4f7a;
+        background-color: #9e3f68;
         color: #ffffff;
     }
 
@@ -681,7 +681,7 @@ PINK_THEME = """
 
     QToolBar QToolButton:pressed,
     QToolBar QToolButton:checked {
-        background-color: #bd4f7a;
+        background-color: #9e3f68;
         color: #ffffff;
     }
 
@@ -704,7 +704,7 @@ PINK_THEME = """
     }
 
     QPushButton:pressed {
-        background-color: #bd4f7a;
+        background-color: #9e3f68;
         color: #ffffff;
     }
 
@@ -726,7 +726,7 @@ PINK_THEME = """
         alternate-background-color: #d4aabd;
         gridline-color: #c59bab;
         border: 1px solid #c79aaa;
-        selection-background-color: #bd4f7a;
+        selection-background-color: #9e3f68;
         selection-color: #ffffff;
     }
 
@@ -755,7 +755,7 @@ PINK_THEME = """
     QTreeView::item:selected,
     QListView::item:selected,
     QListWidget::item:selected {
-        background-color: #bd4f7a;
+        background-color: #9e3f68;
         color: #ffffff;
     }
 
@@ -779,7 +779,7 @@ PINK_THEME = """
         alternate-background-color: #c79aaa;
         gridline-color: #bf8fa3;
         border: 1px solid #bf8fa3;
-        selection-background-color: #bd4f7a;
+        selection-background-color: #9e3f68;
         selection-color: #ffffff;
     }
 
@@ -808,7 +808,7 @@ PINK_THEME = """
     QTreeView::item:selected,
     QListView::item:selected,
     QListWidget::item:selected {
-        background-color: #bd4f7a;
+        background-color: #9e3f68;
         color: #ffffff;
     }
 
@@ -858,7 +858,7 @@ PINK_THEME = """
     }
 
     QTabBar::tab:selected {
-        background-color: #bd4f7a;
+        background-color: #9e3f68;
         color: #ffffff;
         border: 1px solid #ae416b;
     }
@@ -884,7 +884,7 @@ PINK_THEME = """
     }
 
     QMenu::item:selected {
-        background-color: #bd4f7a;
+        background-color: #9e3f68;
         color: #ffffff;
     }
 
@@ -931,7 +931,7 @@ PINK_THEME = """
         background-color: #f6e5ec;
         color: #30252c;
         border: 1px solid #c79aaa;
-        selection-background-color: #bd4f7a;
+        selection-background-color: #9e3f68;
         selection-color: #ffffff;
     }
 
@@ -1054,7 +1054,7 @@ ORANGE_THEME = """
         border: 1px solid #c98224;
         border-radius: 3px;
         padding: 3px;
-        selection-background-color: #f7931a;
+        selection-background-color: #a65300;
         selection-color: #ffffff;
     }
 
@@ -1084,7 +1084,7 @@ ORANGE_THEME = """
         background-color: #fff0d2;
         color: #3a2a1a;
         border: 1px solid #c98224;
-        selection-background-color: #f7931a;
+        selection-background-color: #a65300;
         selection-color: #ffffff;
         outline: none;
     }
@@ -1096,7 +1096,7 @@ ORANGE_THEME = """
     }
 
     QComboBox QAbstractItemView::item:selected {
-        background-color: #f7931a;
+        background-color: #a65300;
         color: #ffffff;
     }
 
@@ -1130,7 +1130,7 @@ ORANGE_THEME = """
 
     QToolBar QToolButton:pressed,
     QToolBar QToolButton:checked {
-        background-color: #f7931a;
+        background-color: #a65300;
         color: #ffffff;
     }
 
@@ -1151,7 +1151,7 @@ ORANGE_THEME = """
     }
 
     QPushButton:pressed {
-        background-color: #f7931a;
+        background-color: #a65300;
         color: #ffffff;
     }
 
@@ -1173,7 +1173,7 @@ ORANGE_THEME = """
         alternate-background-color: #d49336;
         gridline-color: #bd7b22;
         border: 1px solid #c98224;
-        selection-background-color: #f7931a;
+        selection-background-color: #a65300;
         selection-color: #ffffff;
     }
 
@@ -1202,7 +1202,7 @@ ORANGE_THEME = """
     QTreeView::item:selected,
     QListView::item:selected,
     QListWidget::item:selected {
-        background-color: #f7931a;
+        background-color: #a65300;
         color: #ffffff;
     }
 
@@ -1224,7 +1224,7 @@ ORANGE_THEME = """
     QTableView::indicator:checked,
     QTreeView::indicator:checked,
     QListView::indicator:checked {
-        background-color: #f7931a;
+        background-color: #a65300;
         border: 1px solid #c96b00;
     }
 
@@ -1252,7 +1252,7 @@ ORANGE_THEME = """
     }
 
     QTabBar::tab:selected {
-        background-color: #f7931a;
+        background-color: #a65300;
         color: #ffffff;
         border: 1px solid #c96b00;
     }
@@ -1278,7 +1278,7 @@ ORANGE_THEME = """
     }
 
     QMenu::item:selected {
-        background-color: #f7931a;
+        background-color: #a65300;
         color: #ffffff;
     }
 
@@ -1302,7 +1302,7 @@ ORANGE_THEME = """
 
     QCheckBox::indicator:checked,
     QRadioButton::indicator:checked {
-        background-color: #f7931a;
+        background-color: #a65300;
         border: 1px solid #c96b00;
     }
 
@@ -1325,7 +1325,7 @@ ORANGE_THEME = """
         background-color: #fff7e8;
         color: #3a2a1a;
         border: 1px solid #c98224;
-        selection-background-color: #f7931a;
+        selection-background-color: #a65300;
         selection-color: #ffffff;
     }
 
@@ -1568,7 +1568,7 @@ QListWidget::item {
 }
 
 QListWidget::item:selected {
-    background-color: #d96f9c;
+    background-color: #9e3f68;
     color: #ffffff;
 }
 
@@ -1592,7 +1592,7 @@ QListWidget::item {
 }
 
 QListWidget::item:selected {
-    background-color: #f7931a;
+    background-color: #a65300;
     color: #ffffff;
 }
 
@@ -1779,7 +1779,7 @@ QListView::item {
 }
 
 QListView::item:selected {
-    background-color: #d96f9c;
+    background-color: #9e3f68;
     color: #ffffff;
 }
 
@@ -1796,13 +1796,13 @@ QTableView::item {
 }
 
 QTableView::item:selected {
-    background-color: #d96f9c;
+    background-color: #9e3f68;
     color: #ffffff;
 }
 
 QTableView::item:focus {
-    color: #30252c;
-    background-color: #d96f9c;
+    color: #ffffff;
+    background-color: #9e3f68;
     border: 0px;
 }
 
@@ -1818,7 +1818,7 @@ QTreeView::item {
 }
 
 QTreeView::item:selected {
-    background-color: #d96f9c;
+    background-color: #9e3f68;
     color: #ffffff;
 }
 
@@ -1868,7 +1868,7 @@ QListView::item {
 }
 
 QListView::item:selected {
-    background-color: #f7931a;
+    background-color: #a65300;
     color: #ffffff;
 }
 
@@ -1885,13 +1885,13 @@ QTableView::item {
 }
 
 QTableView::item:selected {
-    background-color: #f7931a;
+    background-color: #a65300;
     color: #ffffff;
 }
 
 QTableView::item:focus {
-    color: #3a2a1a;
-    background-color: #f7931a;
+    color: #ffffff;
+    background-color: #a65300;
     border: 0px;
 }
 
@@ -1907,7 +1907,7 @@ QTreeView::item {
 }
 
 QTreeView::item:selected {
-    background-color: #f7931a;
+    background-color: #a65300;
     color: #ffffff;
 }
 
@@ -1946,14 +1946,19 @@ QTreeView::item:selected {
 """
 
 
+def theme_accent(theme: Theme) -> str:
+    # These deeper shades keep white labels/checkmarks readable on every accent.
+    return {Theme.PINK: '#9e3f68', Theme.ORANGE: '#a65300'}.get(theme, '#0877d1')
+
+
 def theme_palette(theme: Theme) -> QPalette:
     # Start fresh on every switch. Reusing app.palette() retains the previous
     # native dark palette in controls that a stylesheet does not cover.
     colors = {
         Theme.LIGHT: ('#f2f2f2', '#ffffff', '#f5f8fa', '#222222', '#d3ebff', '#000000'),
         Theme.DARK: ('#202124', '#303236', '#383b40', '#e8eaed', '#526b88', '#ffffff'),
-        Theme.PINK: ('#e7bfd0', '#eed5df', '#d4aabd', '#30252c', '#bd4f7a', '#ffffff'),
-        Theme.ORANGE: ('#ead1ad', '#ffffff', '#e7c9a5', '#3a2a1a', '#f7931a', '#ffffff'),
+        Theme.PINK: ('#e7bfd0', '#eed5df', '#d4aabd', '#30252c', '#9e3f68', '#ffffff'),
+        Theme.ORANGE: ('#ead1ad', '#ffffff', '#e7c9a5', '#3a2a1a', '#a65300', '#ffffff'),
     }
     window, base, alternate, text, highlight, highlighted = colors[theme]
     palette = QPalette(QColor(window))
@@ -1986,7 +1991,7 @@ def apply_theme(app, theme: Theme) -> None:
     app.setStyleSheet('')
     app.setPalette(theme_palette(theme))
     from .theme_controls import control_style
-    app.setStyleSheet(stylesheet + control_style(theme == Theme.DARK))
+    app.setStyleSheet(stylesheet + control_style(theme == Theme.DARK, theme_accent(theme)))
 
     dark = theme == Theme.DARK
 

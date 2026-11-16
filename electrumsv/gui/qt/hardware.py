@@ -8,7 +8,18 @@ from PyQt5.QtWidgets import (QAction, QLabel, QVBoxLayout, QHBoxLayout, QPushBut
 from electrumsv.app_state import app_state
 from electrumsv.exceptions import UserCancelled
 from electrumsv.i18n import _
+from electrumsv.devices.hardware import DeviceCheckError
 from .util import WindowModalDialog, read_QIcon
+
+
+def device_status_text(status):
+    if status.verified_xpubs:
+        return _('Account key matches')
+    if status.check_error and status.state in ('connected', 'bch_ready'):
+        return _('Unavailable')
+    return {'not_detected': _('Not detected'), 'unavailable': _('Unavailable'),
+        'connected': _('Connected; pairing unchecked'), 'locked': _('Locked'),
+        'bch_ready': _('Bitcoin Cash open'), 'app_not_open': _('Open Bitcoin Cash to sign')}[status.state]
 
 
 def show_unavailable_hardware(window, keystore):
@@ -91,9 +102,19 @@ class HardwareWalletDialog(QDialog):
         layout.addWidget(intro)
         self.devices = QTreeWidget()
         self.devices.setObjectName('hardwareDevices')
+        from electrumsv.util import resource_path
+        check_icon = resource_path('icons', 'control-check.svg').replace('\\', '/')
+        self.devices.setStyleSheet('QTreeWidget#hardwareDevices::indicator { width: 16px; '
+            'height: 16px; border: 1px solid palette(mid); border-radius: 3px; } '
+            'QTreeWidget#hardwareDevices::indicator:checked { background: palette(highlight); '
+            'image: url("' + check_icon + '"); }')
         self.devices.setHeaderLabels([_('Device'), _('Status'), _('Application / version')])
         self.devices.setRootIsDecorated(False)
         self.devices.setUniformRowHeights(True)
+        from PyQt5.QtWidgets import QHeaderView
+        self.devices.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.devices.header().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self.devices.header().setMinimumSectionSize(120)
         self.devices.currentItemChanged.connect(self._selected)
         layout.addWidget(self.devices)
         self.details = QLabel(_('Connect and unlock a hardware wallet to begin.'))
@@ -150,7 +171,7 @@ class HardwareWalletDialog(QDialog):
         self.connect_button.setEnabled(status is not None)
         if status is not None:
             self.details.setText(_('Account public key checked. It will be checked again before signing.')
-                if self._checked else status.detail)
+                if self._checked else status.check_error or status.detail)
         else:
             self.details.setText(_('Choose a device and connect it to check the account public key.'))
 
@@ -212,6 +233,7 @@ class HardwareWalletDialog(QDialog):
                 self.monitor.resume()
                 self.monitor.refresh()
                 return
+            failed_status = status
             try:
                 checked = future.result()
                 item.setData(0, Qt.UserRole, checked)
@@ -223,14 +245,19 @@ class HardwareWalletDialog(QDialog):
                     self.monitor.record_check(checked)
             except UserCancelled:
                 self.details.setText(_('Connection cancelled. Select the device and retry.'))
+                failed_status = replace(status, check_error=self.details.text())
+            except DeviceCheckError as exc:
+                failed_status = exc.status
+                self.details.setText(str(exc))
             except Exception as exc:
                 self.details.setText(str(exc))
+                failed_status = replace(status, check_error=str(exc))
             finally:
                 if self._checked is None:
-                    item.setText(1, _('Unavailable'))
+                    item.setData(0, Qt.UserRole, failed_status)
+                    item.setText(1, device_status_text(failed_status))
                     if self.monitor:
-                        self.monitor.record_check(replace(status, state='unavailable',
-                            detail=self.details.text()))
+                        self.monitor.record_check(failed_status)
                 if self.monitor:
                     self.monitor.resume()
 
@@ -263,36 +290,43 @@ class HardwareWalletDialog(QDialog):
         if self.monitor:
             self.stores = self.monitor.stores
         current = self.devices.currentItem()
-        previous_id = current.data(0, Qt.UserRole).device.id_ if current else None
-        states = {'not_detected': _('Not detected'), 'unavailable': _('Unavailable'),
-            'connected': _('Connected; pairing unchecked'), 'locked': _('Locked'),
-            'bch_ready': _('Bitcoin Cash open'), 'app_not_open': _('Open Bitcoin Cash to sign')}
+        current_key = ((current.data(0, Qt.UserRole).kind,
+            current.data(0, Qt.UserRole).device.id_) if current else None)
+        existing = {}
+        for index in range(self.devices.topLevelItemCount()):
+            item = self.devices.topLevelItem(index)
+            old = item.data(0, Qt.UserRole)
+            existing[(old.kind, old.device.id_)] = item
         self._loading = True
-        self.devices.clear()
+        present = set()
         diagnostics = []
         for row in rows:
             if row.device is None:
                 if row.state == 'unavailable':
                     diagnostics.append('{}: {}'.format(row.label, row.detail))
                 continue
-            item = QTreeWidgetItem([row.label,
-                _('Account key matches') if row.verified_xpubs else states[row.state],
-                ' '.join(value for value in (row.app, row.version) if value)])
+            key = (row.kind, row.device.id_)
+            present.add(key)
+            item = existing.get(key)
+            if item is None:
+                item = QTreeWidgetItem()
+                self.devices.addTopLevelItem(item)
+            for column, text in enumerate((row.label, device_status_text(row),
+                    ' '.join(value for value in (row.app, row.version) if value))):
+                if item.text(column) != text:
+                    item.setText(column, text)
             # The tick is a result, not a user-settable checkbox.
             item.setFlags(item.flags() & ~Qt.ItemIsUserCheckable)
             item.setCheckState(0, Qt.Checked if row.verified_xpubs else Qt.Unchecked)
             item.setData(0, Qt.UserRole, row)
             item.setToolTip(0, row.label)
-            item.setToolTip(1, row.detail)
-            self.devices.addTopLevelItem(item)
-            if row.device.id_ == previous_id:
-                self.devices.setCurrentItem(item)
-        self.devices.resizeColumnToContents(0)
-        self.devices.resizeColumnToContents(1)
-        if previous_id is None or self.devices.currentItem() is None:
+            item.setToolTip(1, row.check_error or row.detail)
+        for key, item in existing.items():
+            if key not in present:
+                self.devices.takeTopLevelItem(self.devices.indexOfTopLevelItem(item))
+        if current_key not in present:
             self.devices.setCurrentItem(None)
             self.devices.clearSelection()
-            self.refresh_button.setFocus(Qt.OtherFocusReason)
         self.diagnostics.setPlainText('\n\n'.join(diagnostics))
         self.diagnostics_toggle.setVisible(bool(diagnostics))
         if not diagnostics:
@@ -356,33 +390,59 @@ class MessageHashReview(QWidget):
 class LedgerSigningOptionsDialog(WindowModalDialog):
     """Per-operation policy; never persist a reduced-verification preference."""
     def __init__(self, parent, tx):
+        from PyQt5.QtWidgets import QLayout, QSizePolicy
         super().__init__(parent, _('Ledger signing options'))
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel(_('{} inputs · {} outputs').format(len(tx.inputs), len(tx.outputs))))
-        self.verify_inputs = QCheckBox(_('Verify previous transactions on the device (recommended)'))
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
+        layout.setSizeConstraint(QLayout.SetMinimumSize)
+        summary = QLabel(_('Inputs: {} · Outputs: {}').format(len(tx.inputs), len(tx.outputs)))
+        summary.setWordWrap(True)
+        layout.addWidget(summary)
+        self.verify_inputs = QCheckBox(_('Verify input amounts (recommended)'))
         self.verify_inputs.setChecked(True)
         layout.addWidget(self.verify_inputs)
-        note = QLabel(_('When enabled, available complete previous transactions are sent to '
-            'the device to verify input amounts. Large transactions may take several minutes. '
-            'If data is missing or exceeds the device model’s work budget, you will be asked '
-            'before continuing with reduced verification.'))
-        note.setWordWrap(True)
-        layout.addWidget(note)
-        warning = QLabel(_('When disabled, complete previous transactions are not sent. '
-            'The device may show “unverified inputs” and cannot independently verify the fee. '
-            'The current transaction’s inputs and outputs are still sent, and every requested '
-            'input still needs its own signature. This may therefore remain slow.'))
-        warning.setWordWrap(True)
-        layout.addWidget(warning)
+        self.note = QLabel()
+        self.note.setTextFormat(Qt.PlainText)
+        self.note.setWordWrap(True)
+        self.note.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
+        layout.addWidget(self.note)
+        self.verify_inputs.toggled.connect(self._update_note)
+        self._update_note(True)
         buttons = QHBoxLayout()
+        buttons.setSpacing(8)
+        buttons.addStretch(1)
         cancel = QPushButton(_('Cancel'))
+        cancel.setAutoDefault(False)
         cancel.clicked.connect(self.reject)
-        proceed = QPushButton(_('Continue to device'))
-        proceed.clicked.connect(self.accept)
+        self.proceed_button = QPushButton(_('Continue to device'))
+        self.proceed_button.setDefault(True)
+        self.proceed_button.clicked.connect(self.accept)
         buttons.addWidget(cancel)
-        buttons.addWidget(proceed)
+        buttons.addWidget(self.proceed_button)
+        layout.addSpacing(4)
         layout.addLayout(buttons)
-        self.resize(560, 250)
+        self.setMinimumWidth(500)
+        self.resize(540, self.sizeHint().height())
+
+    def _update_note(self, enabled):
+        self.note.setText(_('Ledger checks previous transactions before signing. '
+            'Large transactions may take several minutes.') if enabled else
+            _('Ledger may show “unverified inputs” and cannot verify the fee. '
+                'Signing many inputs may still be slow.'))
+        self._fit_note()
+
+    def _fit_note(self):
+        # Keep wrapped lines above the buttons even at larger fonts or in longer
+        # translations. A fixed dialog height must never hide the fee warning.
+        width = max(460, self.width() - self.layout().contentsMargins().left() -
+            self.layout().contentsMargins().right())
+        self.note.setMinimumHeight(max(self.note.fontMetrics().height(),
+            self.note.heightForWidth(width)))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._fit_note()
 
 
 class SigningInputsDialog(WindowModalDialog):

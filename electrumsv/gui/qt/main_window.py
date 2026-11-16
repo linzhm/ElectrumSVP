@@ -627,6 +627,10 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin):
         tab.tab_name = name
         if self.config.get('show_{}_tab'.format(name), default):
             tabs.addTab(tab, icon, description.replace("&", ""))
+        else:
+            # Pages constructed with the main window as parent are visible
+            # children until explicitly hidden or adopted by the tab stack.
+            tab.hide()
 
     def _on_wallet_setting_changed(self, event_name: str, setting_name: str, setting_value: Any) \
             -> None:
@@ -775,6 +779,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin):
             else:
                 i = self._tab_widget.indexOf(tab)
                 self._tab_widget.removeTab(i)
+                tab.hide()
 
         if self._tab_widget.indexOf(tab) != -1 and to_front:
             self._tab_widget.setCurrentWidget(tab)
@@ -1737,14 +1742,31 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin):
         the callback with a success code of True or False.'''
         window = window or self
         verify_inputs = True
-        if any(getattr(store, 'hw_type', None) == 'ledger'
-                for store in self._account.get_keystores()):
-            from .hardware import LedgerSigningOptionsDialog
-            options = LedgerSigningOptionsDialog(window, tx)
-            if not options.exec_():
+        account = self._account
+        ledger_stores = [store for store in account.get_keystores()
+            if getattr(store, 'hw_type', None) == 'ledger']
+        if ledger_stores:
+            from .ledger_progress import LedgerSigningDialog
+            existing = getattr(self, '_ledger_signing_dialog', None)
+            if existing is not None and existing.isVisible():
+                existing.raise_()
                 callback(False)
                 return
-            verify_inputs = options.verify_inputs.isChecked()
+            before = tuple(tuple(txin.signatures) for txin in tx.inputs)
+            def operation(verify):
+                account.sign_transaction(tx, password, tx_context=tx_context,
+                    input_indexes=input_indexes, verify_inputs=verify)
+                if before == tuple(tuple(txin.signatures) for txin in tx.inputs):
+                    raise UserCancelled()
+            def completed(success):
+                self._ledger_signing_dialog = None
+                callback(success)
+            dialog = LedgerSigningDialog(window, tx,
+                [store.handler for store in ledger_stores if store.handler is not None],
+                operation, completed)
+            self._ledger_signing_dialog = dialog
+            dialog.show()
+            return
 
         def on_done(future: concurrent.futures.Future) -> None:
             try:

@@ -87,6 +87,13 @@ class DeviceStatus:
     version: str = ''
     device: Any = None
     verified_xpubs: Tuple[str, ...] = ()
+    check_error: str = ''
+
+
+class DeviceCheckError(HardwareError):
+    def __init__(self, status):
+        self.status = status
+        super().__init__(status.check_error or status.detail)
 
 
 class HardwareWallets:
@@ -161,43 +168,43 @@ class HardwareWallets:
             if device.id_ == status.device.id_), None)
         if device is None:
             raise HardwareError(_('The selected device is unavailable. Refresh and retry.'))
-        client = self.manager._create_client(device, handler, plugin)
-        if client is None:
-            raise HardwareError(_('The selected device is unavailable. Refresh and retry.'))
-        client.handler = handler
-        plugin.check_connection(client)
-        matched = []
-        for store in stores:
-            if getattr(store, 'hw_type', None) == status.kind:
-                key = client.get_master_public_key(store.get_derivation())
-                if key is not None and key.to_extended_key_string() == store.xpub:
-                    matched.append(store.xpub)
         checked = plugin.get_device_status(device)
-        if checked.state not in ('connected', 'bch_ready'):
-            raise HardwareError(checked.detail)
-        if not matched:
-            raise HardwareError(_('This device does not match the current account. '
-                'Check the selected device, account path and passphrase.'))
-        return replace(checked, verified_xpubs=tuple(matched))
+        if checked.state in ('locked', 'unavailable'):
+            raise DeviceCheckError(checked)
+        try:
+            client = self.manager._create_client(device, handler, plugin)
+            if client is None:
+                raise HardwareError(_('The selected device is unavailable. Refresh and retry.'))
+            client.handler = handler
+            plugin.check_connection(client)
+            matched = []
+            for store in stores:
+                if getattr(store, 'hw_type', None) == status.kind:
+                    key = client.get_master_public_key(store.get_derivation())
+                    if key is not None and key.to_extended_key_string() == store.xpub:
+                        matched.append(store.xpub)
+            checked = plugin.get_device_status(device)
+            if checked.state not in ('connected', 'bch_ready'):
+                raise DeviceCheckError(checked)
+            if not matched:
+                raise HardwareError(_('This device does not match the current account. '
+                    'Check the selected device, account path and passphrase.'))
+            return replace(checked, verified_xpubs=tuple(matched), check_error='')
+        except (DeviceCheckError, UserCancelled):
+            raise
+        except Exception as exc:
+            # Preserve a precise transport state even when connection/key checking failed.
+            try:
+                checked = plugin.get_device_status(device)
+            except Exception:
+                checked = replace(status, state='unavailable', detail=str(exc))
+            raise DeviceCheckError(replace(checked, verified_xpubs=(),
+                check_error='' if checked.state == 'locked' else str(exc))) from exc
 
     @device_operation
     def inspect(self, stores):
-        """Poll candidates; only already-open Nano BCH apps permit unattended key reads.
-
-        Other adapters may need PIN/passphrase dialogs. They are checked through
-        the explicit Connect action, never by prompting from a background poll.
-        """
-        rows = []
-        for status in self.status():
-            if status.device is not None and status.kind == 'ledger' and \
-                    status.state == 'bch_ready' and any(
-                        getattr(store, 'hw_type', None) == status.kind for store in stores):
-                try:
-                    status = self.check_device(status, stores, None)
-                except Exception as exc:
-                    status = replace(status, state='unavailable', detail=str(exc), verified_xpubs=())
-            rows.append(status)
-        return tuple(rows)
+        """Read presence, lock and app state only; Connect owns application/key checks."""
+        return self.status()
 
     @device_operation
     def verify_device(self, status, stores, handler):
@@ -315,6 +322,11 @@ class HardwareWallets:
         if not verify_inputs:
             options['verify_inputs'] = False
         store.sign_transaction(candidate, password, candidate_context, **options)
+        handler = getattr(store, 'handler', None)
+        if handler is not None and hasattr(handler, 'check_cancelled'):
+            handler.check_cancelled()
+        if handler is not None and hasattr(handler, 'show_stage'):
+            handler.show_stage('verify')
         if len(candidate.inputs) != len(tx.inputs):
             raise HardwareError(_('Device returned an unexpected input count.'))
         changes = []

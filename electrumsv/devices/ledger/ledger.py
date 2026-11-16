@@ -353,6 +353,15 @@ class Ledger_KeyStore(Hardware_KeyStore):
         assert self.handler is not None
         from .input_verification import InputVerification, plan_input_verification, large_verification
         from electrumsv.exceptions import UserCancelled
+        def stage(name, completed=0, total=0):
+            if hasattr(self.handler, 'show_stage'):
+                self.handler.show_stage(name, completed, total)
+
+        def check_cancelled():
+            if hasattr(self.handler, 'check_cancelled'):
+                self.handler.check_cancelled()
+
+        check_cancelled()
         session = self.get_client_electrum()
         client = session.dongleObject
         model = device_model(session._device) if session._device is not None else 'Ledger'
@@ -429,8 +438,10 @@ class Ledger_KeyStore(Hardware_KeyStore):
 
         self.handler.show_message(_('Verifying previous transactions on your Ledger...')
             if verification.trusted else _("Confirm Transaction on your Ledger device..."))
+        stage('parents', 0, len(inputs) if verification.trusted else -1)
         try:
             for i, utxo in enumerate(inputs):
+                check_cancelled()
                 txin = tx.inputs[i]
                 sequence = int_to_hex(utxo.sequence, 4)
                 if verification.trusted:
@@ -443,6 +454,7 @@ class Ledger_KeyStore(Hardware_KeyStore):
                         verification.parents[i])), txin.prev_idx)
                     trusted.update(witness=True, sequence=sequence)
                     chipInputs.append(trusted)
+                    stage('parents', i + 1, len(inputs))
                 else:
                     value_bytes = txin.prevout_bytes() + pack_le_int64(utxo.value)
                     chipInputs.append({'value': value_bytes, 'witness': True, 'sequence': sequence})
@@ -454,12 +466,15 @@ class Ledger_KeyStore(Hardware_KeyStore):
             client.enableAlternate2fa(False)
             self.handler.show_message(_('Preparing the current transaction ({} inputs) '
                 'on your Ledger...').format(len(inputs)))
+            check_cancelled()
             client.startUntrustedTransaction(True, inputIndex, chipInputs,
                 redeemScripts[inputIndex], version=tx.version)
             self.handler.show_message(_('Review the transaction on your Ledger. '
                 'Input amounts were checked against previous transactions; chain status '
                 'and coinbase maturity are checked by the wallet.') if verification.trusted
                 else _('Review the transaction on your Ledger. Input amounts are unverified.'))
+            stage('review')
+            check_cancelled()
             outputData = client.finalizeInputFull(txOutput)
             outputData['outputData'] = txOutput
             transactionOutput = outputData['outputData']
@@ -472,15 +487,21 @@ class Ledger_KeyStore(Hardware_KeyStore):
                     raise UserWarning()
                 pin = auth_pin
                 self.handler.show_message(_("Confirmed. Signing Transaction..."))
+            signed_count = 0
+            sign_total = sum(path is not None for path in inputsPaths)
             while inputIndex < len(inputs):
+                check_cancelled()
                 if inputsPaths[inputIndex] is None:
                     inputIndex += 1
                     continue
                 message = _('Signing input {} of {} on your Ledger...').format(inputIndex + 1, len(inputs))
-                if hasattr(self.handler, 'show_progress'):
-                    self.handler.show_progress(message, inputIndex + 1, len(inputs))
-                else:
-                    self.handler.show_message(message)
+                # Some BCH versions defer approval until the first sign APDU.
+                # Keep Review active until that first signature actually returns.
+                if signed_count:
+                    if hasattr(self.handler, 'show_progress'):
+                        self.handler.show_progress(message, inputIndex + 1, len(inputs))
+                    else:
+                        self.handler.show_message(message)
                 singleInput = [ chipInputs[inputIndex] ]
                 client.startUntrustedTransaction(
                     False, 0, singleInput, redeemScripts[inputIndex], version=tx.version)
@@ -489,7 +510,11 @@ class Ledger_KeyStore(Hardware_KeyStore):
                                                                      sighashType=tx.nHashType())
                 inputSignature[0] = 0x30 # force for 1.4.9+
                 signatures.append((inputIndex, inputSignature))
+                signed_count += 1
+                stage('sign', signed_count, sign_total)
                 inputIndex = inputIndex + 1
+        except UserCancelled:
+            raise
         except UserWarning:
             self.handler.show_error(_('Cancelled by user'))
             return
@@ -507,6 +532,7 @@ class Ledger_KeyStore(Hardware_KeyStore):
         finally:
             self.handler.finished()
 
+        check_cancelled()
         for input_index, signature in signatures:
             tx.inputs[input_index].signatures[inputs[input_index].txin_xpub_idx] = signature
 

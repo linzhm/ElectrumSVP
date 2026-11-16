@@ -54,6 +54,7 @@ from . import dialogs
 from .invoice_list import InvoiceList
 from .paytoedit import PayToEdit
 from .table_widgets import TableTopButtonLayout
+from .form_scroll_area import FormScrollArea
 from .util import (ColorScheme, EnterButton, HelpDialogButton, HelpLabel, MyTreeWidget,
     UntrustedMessageDialog, update_fixed_tree_height)
 
@@ -340,7 +341,7 @@ class SendView(QWidget):
         vbox = QVBoxLayout(self)
         vbox.setContentsMargins(16, 16, 16, 16)
         vbox.setSpacing(20)
-        vbox.addLayout(grid)
+        vbox.addWidget(FormScrollArea(grid, self))
         vbox.addWidget(invoice_box, 1)
 
         return vbox

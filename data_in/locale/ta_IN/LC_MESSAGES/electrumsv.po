@@ -879,3 +879,145 @@ msgid "Hardware device detected, but not available for this account"
 msgstr ""
 "வன்பொருள் சாதனம் கண்டறியப்பட்டது, ஆனால் இந்தக் கணக்கிற்குக் கிடைக்கவில்லை"
 
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid ""
+"Ledger may show “unverified inputs” and cannot verify the fee. Signing many "
+"inputs may still be slow."
+msgstr ""
+"Ledger “unverified inputs” எனக் காட்டலாம்; கட்டணத்தைச் சரிபார்க்க முடியாது. "
+"பல உள்ளீடுகளுக்குக் கையொப்பமிடுவது இன்னும் மெதுவாக இருக்கலாம்."
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Verify input amounts (recommended)"
+msgstr "உள்ளீட்டுத் தொகைகளைச் சரிபார் (பரிந்துரை)"
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid ""
+"Ledger checks previous transactions before signing. Large transactions may "
+"take several minutes."
+msgstr ""
+"கையொப்பமிடுவதற்கு முன் Ledger முந்தைய பரிவர்த்தனைகளைச் சரிபார்க்கும். பெரிய "
+"பரிவர்த்தனைகளுக்கு சில நிமிடங்கள் ஆகலாம்."
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/hardware.py
+#, python-brace-format
+msgid "Inputs: {} · Outputs: {}"
+msgstr "உள்ளீடுகள்: {} · வெளியீடுகள்: {}"
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Skipped"
+msgstr "தவிர்க்கப்பட்டது"
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Sign inputs"
+msgstr "உள்ளீடுகளுக்குக் கையொப்பமிடு"
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Follow the instructions on your Ledger."
+msgstr "Ledger இல் உள்ள வழிமுறைகளைப் பின்பற்றுங்கள்."
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Signatures verified."
+msgstr "கையொப்பங்கள் சரிபார்க்கப்பட்டன."
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/ledger_progress.py
+msgid ""
+"Cancellation requested. Finish or reject the current request on your Ledger;"
+" signing will stop before the next device operation."
+msgstr ""
+"ரத்து கோரப்பட்டது. Ledger இல் தற்போதைய கோரிக்கையை முடிக்கவும் அல்லது "
+"நிராகரிக்கவும்; அடுத்த சாதனச் செயலுக்கு முன் கையொப்பமிடல் நிறுத்தப்படும்."
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Transaction signing"
+msgstr "பரிவர்த்தனைக் கையொப்பம்"
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Prepare transaction"
+msgstr "பரிவர்த்தனையைத் தயாரி"
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Verify signatures"
+msgstr "கையொப்பங்களைச் சரிபார்"
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Keep your Ledger connected throughout signing."
+msgstr "கையொப்பமிடும் வரை Ledger இணைப்பை வைத்திருங்கள்."
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Verify previous transactions"
+msgstr "முந்தைய பரிவர்த்தனைகளைச் சரிபார்"
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Review on device"
+msgstr "சாதனத்தில் சரிபார்"
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Stopped"
+msgstr "நிறுத்தப்பட்டது"
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Signing cancelled."
+msgstr "கையொப்பமிடல் ரத்து செய்யப்பட்டது."
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Complete"
+msgstr "முடிந்தது"
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Waiting"
+msgstr "காத்திருக்கிறது"
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "In progress"
+msgstr "செயல்படுகிறது"
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/transaction_dialog.py
+msgid "Some input amounts could not be retrieved."
+msgstr "சில உள்ளீட்டுத் தொகைகளைப் பெற முடியவில்லை."
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/transaction_dialog.py
+msgid ""
+"Previous transaction data is not stored in this wallet. Use View on block "
+"explorer to inspect it."
+msgstr ""
+"முந்தைய பரிவர்த்தனைத் தரவு இந்தப் பணப்பையில் சேமிக்கப்படவில்லை. “தொகுதி "
+"உலாவியில் காண்க” என்பதைப் பயன்படுத்துங்கள்."
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/transaction_dialog.py
+msgid "Loading input amounts…"
+msgstr "உள்ளீட்டுத் தொகைகள் ஏற்றப்படுகின்றன…"
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/transaction_dialog.py
+msgid "Input amounts are unavailable offline."
+msgstr "இணைய இணைப்பின்றி உள்ளீட்டுத் தொகைகளைப் பெற முடியாது."
+
+# ElectrumSVP interface. Machine translation; native-language review welcome.
+#: electrumsv/gui/qt/transaction_dialog.py
+msgid "Retry"
+msgstr "மீண்டும் முயற்சி"
+

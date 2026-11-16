@@ -324,5 +324,17 @@
     "startup_regression": "Offline startup skips remote header validation; malformed remote results cannot cause a valid local headers file to be backed up/replaced."
   },
   "benchmarks": "ledger-benchmarks.json",
-  "known_issues": "known-issues.md"
+  "known_issues": "known-issues.md",
+  "latest_host_regression": {
+    "date": "2026-11-17",
+    "focused_tests_passed": 442,
+    "warnings": 22,
+    "new_ui_validation": "simulated Qt; no funded transaction or packaged hardware signing",
+    "notes": [
+      "Passive probing never connects or chooses devices",
+      "Candidate rows retain focus and scroll position",
+      "One signing window with five phases",
+      "Transaction inspection verifies previous transaction hash and output index"
+    ]
+  }
 }

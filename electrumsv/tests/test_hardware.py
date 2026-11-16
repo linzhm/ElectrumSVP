@@ -268,3 +268,29 @@ def test_connection_check_does_not_commit_transport_or_key_pairing():
     assert not manager.xpub_ids
     assert manager.hardware.selected_device is None
     client.sign_transaction.assert_not_called()
+
+
+def test_probe_never_connects_or_requests_account_keys():
+    from electrumsv.devices.hardware import DeviceStatus
+    manager = DeviceMgr()
+    row = DeviceStatus('ledger', 'Nano X', 'bch_ready', '', device=Mock())
+    manager.hardware.status = Mock(return_value=(row,))
+    manager.hardware.check_device = Mock(side_effect=AssertionError('probe must be passive'))
+    assert manager.hardware.inspect([SimpleNamespace(hw_type='ledger')]) == (row,)
+    manager.hardware.check_device.assert_not_called()
+
+
+def test_locked_connection_preserves_typed_state_and_never_reads_keys():
+    from electrumsv.devices.hardware import DeviceCheckError, DeviceStatus
+    manager = DeviceMgr()
+    device = Device(b'usb', 0, 'locked', (0x2c97, 0x5000), 0xffa0, 'hid')
+    plugin = Mock(libraries_available=True)
+    manager.get_plugin = Mock(return_value=plugin)
+    manager._create_client = Mock()
+    plugin.enumerate_devices.return_value = [device]
+    row = DeviceStatus('ledger', 'Nano S', 'locked', 'Unlock the device', device=device)
+    plugin.get_device_status.return_value = row
+    with pytest.raises(DeviceCheckError) as error:
+        manager.hardware.check_device(row, [], Mock())
+    assert error.value.status.state == 'locked'
+    manager._create_client.assert_not_called()

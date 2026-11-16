@@ -211,3 +211,28 @@ def test_navigation_icons_are_scalable_and_selected_icons_are_white(gui):
         opaque = [image.pixelColor(x, y) for x in range(48) for y in range(48)
             if image.pixelColor(x, y).alpha() > 240]
         assert opaque and all(color.name() == '#ffffff' for color in opaque)
+
+
+@pytest.mark.parametrize('theme', [themes.Theme.PINK, themes.Theme.ORANGE])
+def test_colored_theme_controls_use_their_accent_and_readable_labels(gui, theme):
+    from PyQt5.QtWidgets import QPushButton, QCheckBox, QVBoxLayout, QWidget
+    from PyQt5.QtGui import QColor
+    from electrumsv.gui.qt.theme_controls import SegmentedTabWidget
+    themes.apply_theme(gui, theme)
+    accent = QColor(themes.theme_accent(theme))
+    assert contrast(accent, QColor('white')) >= 4.5
+    assert gui.palette().color(QPalette.Highlight) == accent
+    window = QWidget(); layout = QVBoxLayout(window)
+    tabs = SegmentedTabWidget(); tabs.addTab(QWidget(), 'Selected')
+    tabs.addTab(QWidget(), 'Other'); layout.addWidget(tabs)
+    button = QPushButton('Continue'); button.setDefault(True); layout.addWidget(button)
+    check = QCheckBox('Enabled'); check.setChecked(True); layout.addWidget(check)
+    window.show(); gui.processEvents()
+    # Check rendered controls, not just the stylesheet string: native Qt rules
+    # can otherwise override the intended accent.
+    for widget in (tabs.tabBar(), button, check):
+        image = widget.grab().toImage()
+        count = sum(image.pixelColor(x, y).name() == accent.name()
+            for x in range(image.width()) for y in range(image.height()))
+        assert count > 20, (theme, widget.metaObject().className())
+    window.close()

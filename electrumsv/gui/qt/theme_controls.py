@@ -27,12 +27,12 @@ class SegmentedTabWidget(QTabWidget):
         self.setUsesScrollButtons(True)
 
 
-def control_style(dark):
+def control_style(dark, accent='#0877d1'):
     foreground = '#e8eaed' if dark else '#222222'
     border = '#777d85' if dark else '#858b93'
     surface = '#303236' if dark else '#f2f2f2'
     hover = '#454950' if dark else '#e1e5e9'
-    selected = '#0877d1'
+    selected = accent
     separator = '#454950' if dark else '#d5d8dc'
     disabled = '#969ba3' if dark else '#71767c'
     icons = resource_path('icons').replace('\\', '/')
@@ -41,19 +41,15 @@ def control_style(dark):
     QCheckBox, QRadioButton {{ spacing: 7px; min-height: 22px; background: transparent; }}
     QCheckBox::indicator {{ width: 14px; height: 14px; border-radius: 3px;
         border: 1px solid {border}; background: palette(base); }}
-    QCheckBox::indicator:checked {{ background: #0877d1; border-color: #0877d1;
+    QCheckBox::indicator:checked {{ background: {selected}; border-color: {selected};
         image: url("{icons}/control-check.svg"); }}
-    QCheckBox::indicator:indeterminate {{ background: #0877d1; border-color: #0877d1;
+    QCheckBox::indicator:indeterminate {{ background: {selected}; border-color: {selected};
         image: url("{icons}/control-mixed.svg"); }}
     QCheckBox::indicator:disabled {{ border-color: {separator}; background: palette(button); }}
     QCheckBox::indicator:checked:disabled {{ background: #777d85; }}
     QTreeView::indicator:checked, QTableView::indicator:checked {{
-        image: url("{icons}/control-check.svg"); background: #0877d1; border-color: #0877d1; }}
-    QTreeWidget#hardwareDevices::indicator {{ width: 14px; height: 14px; }}
-    QTreeWidget#hardwareDevices::indicator:unchecked {{ border: none; background: transparent; }}
-    QTreeWidget#hardwareDevices::indicator:checked {{ border: none; background: #20864e;
-        border-radius: 7px; image: url("{icons}/control-check.svg"); }}
-    QCheckBox::indicator:hover, QCheckBox::indicator:focus {{ border-color: #1683dc; }}
+        image: url("{icons}/control-check.svg"); background: {selected}; border-color: {selected}; }}
+    QCheckBox::indicator:hover, QCheckBox::indicator:focus {{ border-color: {selected}; }}
     QComboBox {{ min-height: 20px; padding: 3px 30px 3px 7px;
         border: 1px solid {border}; border-radius: 5px; background: palette(base); }}
     QComboBox::drop-down {{ subcontrol-origin: padding; subcontrol-position: top right;
@@ -84,11 +80,11 @@ def control_style(dark):
         border: 1px solid {border}; background: palette(base); color: palette(text);
         padding: 4px 6px; }}
     QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus,
-    QComboBox:focus, QAbstractSpinBox:focus {{ border-color: #1683dc; }}
+    QComboBox:focus, QAbstractSpinBox:focus {{ border-color: {selected}; }}
     QPushButton {{ border-radius: 5px; border: 1px solid {border};
         background: {surface}; color: {foreground}; padding: 4px 10px; min-height: 20px; }}
     QPushButton:hover {{ background: {hover}; }}
-    QPushButton:default {{ background: #0877d1; border-color: #0877d1; color: #ffffff; }}
+    QPushButton:default {{ background: {selected}; border-color: {selected}; color: #ffffff; }}
     QPushButton:disabled {{ background: {surface}; color: {disabled};
         border-color: {separator}; }}
     QTabWidget::pane {{ border: none; background: {surface}; }}
@@ -104,7 +100,7 @@ def control_style(dark):
     QToolBar#walletToolbar QToolButton {{ padding: 5px 8px; min-width: 44px;
         border: 1px solid transparent; border-radius: 5px; }}
     QToolBar#walletToolbar QToolButton:hover {{ background: {hover}; }}
-    QToolBar#walletToolbar QToolButton:focus {{ border-color: #1683dc; }}
+    QToolBar#walletToolbar QToolButton:focus {{ border-color: {selected}; }}
     QTabWidget#walletTabs {{ background: {surface}; }}
     QTabWidget#walletTabs::tab-bar {{ alignment: left; }}
     QTabWidget#walletTabs::pane {{ border-radius: 0; }}
@@ -114,11 +110,11 @@ def control_style(dark):
     QToolButton[theme_role="table_action"] {{ background: transparent;
         border: 1px solid transparent; border-radius: 3px; padding: 3px; }}
     QToolButton[theme_role="table_action"]:hover {{ background: {hover}; }}
-    QToolButton[theme_role="table_action"]:focus {{ border-color: #1683dc; }}
+    QToolButton[theme_role="table_action"]:focus {{ border-color: {selected}; }}
     QToolButton[theme_role="table_action"]:checked {{ background: {hover}; }}
     QToolButton[theme_role="inline_action"] {{ background: transparent; border: none;
         border-radius: 3px; padding: 3px; }}
     QToolButton[theme_role="inline_action"]:hover {{ background: {hover}; }}
-    QToolButton[theme_role="inline_action"]:focus {{ border: 1px solid #1683dc; }}
+    QToolButton[theme_role="inline_action"]:focus {{ border: 1px solid {selected}; }}
     QWidget[theme_role="options"] {{ border: none; background: transparent; margin: 0; padding: 0; }}
     '''

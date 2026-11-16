@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import QAction
 
 from electrumsv.app_state import app_state
 from electrumsv.i18n import _
-from .util import read_QIcon
+from .hardware_icon import hardware_icon
 
 
 @dataclass(frozen=True)
@@ -25,6 +25,20 @@ def availability(rows):
     if not detected:
         return 'none'
     return 'available' if any(row.verified_xpubs for row in detected) else 'unavailable'
+
+
+def merge_probe_results(previous, current):
+    """Keep explicit check results only while the same device/app state persists."""
+    old = {row.device.id_: row for row in previous if row.device is not None}
+    rows = []
+    for row in current:
+        prior = old.get(row.device.id_) if row.device is not None else None
+        unchanged = prior is not None and (prior.state, prior.app, prior.version, prior.device) == \
+            (row.state, row.app, row.version, row.device)
+        rows.append(replace(row, verified_xpubs=prior.verified_xpubs
+            if unchanged and row.state in ('connected', 'bch_ready') else (),
+            check_error=prior.check_error if unchanged else ''))
+    return tuple(rows)
 
 
 class HardwareStatusMonitor(QObject):
@@ -55,7 +69,7 @@ class HardwareStatusMonitor(QObject):
             for store in (account.get_keystores() if account is not None else ())
             if hasattr(store, 'hw_type'))
         # A match for the previous account must never survive an account switch.
-        self.rows = tuple(replace(row, verified_xpubs=()) for row in self.rows)
+        self.rows = tuple(replace(row, verified_xpubs=(), check_error='') for row in self.rows)
         self.changed.emit(self.rows)
         QTimer.singleShot(0, self.refresh)
 
@@ -89,7 +103,7 @@ class HardwareStatusMonitor(QObject):
                 QTimer.singleShot(0, self.refresh)
                 return
             try:
-                self.rows = future.result()
+                self.rows = merge_probe_results(self.rows, future.result())
             except Exception:
                 # A signing operation owns USB exclusively; polling must not
                 # interrupt it or turn a busy scan into a false disconnect.
@@ -111,7 +125,7 @@ class HardwareStatusMonitor(QObject):
             'available': _('Hardware account key checked; ready to use'),
         }
         text = messages[state]
-        self.action.setIcon(read_QIcon('hardware-{}.svg'.format(state)))
+        self.action.setIcon(hardware_icon(state))
         self.action.setToolTip(text)
         self.action.setStatusTip(text)
 
@@ -120,7 +134,7 @@ def hardware_toolbar_action(window):
     action = getattr(window, '_hardware_action', None)
     if action is None:
         from .hardware import show_hardware_wallets
-        action = QAction(read_QIcon('hardware-none.svg'), _('Hardware wallet'), window)
+        action = QAction(hardware_icon('none'), _('Hardware wallet'), window)
         action.triggered.connect(lambda: show_hardware_wallets(window))
         window._hardware_action = action
         window.add_toolbar_action(action)

@@ -278,10 +278,10 @@ represent focused regression success as a clean full-suite run.
   different attached device.
 - The toolbar distinguishes no detected devices (red cross), detected but unavailable for
   the current account (warning), and a matching account xpub (green check). Background reads
-  refresh every five seconds and invalidate matches on account changes. Ledger devices
-  already in BCH can be checked automatically; **Connect** can request BCH opening on the
-  chosen unlocked Ledger. Other vendors use explicit Connect so background polling cannot
-  trigger PIN/passphrase prompts. No host code enters a PIN. Ledger FIDO/U2F interfaces are
+  refresh every five seconds and invalidate matches on account changes. Automatic probes only read identity, lock and application state and update rows in place.
+  They preserve candidate focus and never connect, read xpubs or select a device.
+  **Connect** checks the candidate xpub; **Select** separately commits the device choice.
+  Lock/app/account changes invalidate checks. No background PIN/passphrase prompt is allowed. No host code enters a PIN. Ledger FIDO/U2F interfaces are
   excluded from wallet candidates, preventing duplicate unavailable rows and the former
   `NoneType.exchange` error.
 - **Keys → Show address on device / Sign/verify message**: address responses are compared with
@@ -322,3 +322,11 @@ visual identity remain; local fixes align labels, size fields and keep help glyp
 Palette tests cover at least 4.5:1 contrast for enabled Light/Dark text roles. Native macOS
 captures cover preferences, network and hardware dialogs in English and Chinese; simulated
 system-change tests are distinct from a real OS appearance-toggle test.
+
+### Signing progress update (2026-11-17)
+
+Transaction options and five stages share a single fixed-size window: preparation, previous
+transaction checks, device review, input signing, and local signature verification. Counts
+advance after device responses. Cancellation waits for the current device request before
+stopping. This presentation is simulated-UI tested; prior physical tests do not certify the
+new packaged GUI. Legacy 2FA still uses its authentication dialog.

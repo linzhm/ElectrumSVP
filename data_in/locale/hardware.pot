@@ -665,3 +665,112 @@ msgstr ""
 #: electrumsv/devices/ledger/ledger.py
 msgid "This USB interface does not support Ledger wallet communication."
 msgstr ""
+
+#: electrumsv/gui/qt/ledger_progress.py
+msgid ""
+"Cancellation requested. Finish or reject the current request on your Ledger;"
+" signing will stop before the next device operation."
+msgstr ""
+
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Complete"
+msgstr ""
+
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Follow the instructions on your Ledger."
+msgstr ""
+
+#: electrumsv/gui/qt/hardware.py
+#, python-brace-format
+msgid "Inputs: {} · Outputs: {}"
+msgstr ""
+
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Keep your Ledger connected throughout signing."
+msgstr ""
+
+#: electrumsv/gui/qt/hardware.py
+msgid ""
+"Ledger checks previous transactions before signing. Large transactions may "
+"take several minutes."
+msgstr ""
+
+#: electrumsv/gui/qt/hardware.py
+msgid ""
+"Ledger may show “unverified inputs” and cannot verify the fee. Signing many "
+"inputs may still be slow."
+msgstr ""
+
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Prepare transaction"
+msgstr ""
+
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Review on device"
+msgstr ""
+
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Sign inputs"
+msgstr ""
+
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Signatures verified."
+msgstr ""
+
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Signing cancelled."
+msgstr ""
+
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Skipped"
+msgstr ""
+
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Stopped"
+msgstr ""
+
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Transaction signing"
+msgstr ""
+
+#: electrumsv/gui/qt/hardware.py
+msgid "Verify input amounts (recommended)"
+msgstr ""
+
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Verify previous transactions"
+msgstr ""
+
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Verify signatures"
+msgstr ""
+
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "Waiting"
+msgstr ""
+
+#: electrumsv/gui/qt/ledger_progress.py
+msgid "In progress"
+msgstr ""
+
+#: electrumsv/gui/qt/transaction_dialog.py
+msgid "Input amounts are unavailable offline."
+msgstr ""
+
+#: electrumsv/gui/qt/transaction_dialog.py
+msgid "Loading input amounts…"
+msgstr ""
+
+#: electrumsv/gui/qt/transaction_dialog.py
+msgid ""
+"Previous transaction data is not stored in this wallet. Use View on block "
+"explorer to inspect it."
+msgstr ""
+
+#: electrumsv/gui/qt/transaction_dialog.py
+msgid "Retry"
+msgstr ""
+
+#: electrumsv/gui/qt/transaction_dialog.py
+msgid "Some input amounts could not be retrieved."
+msgstr ""

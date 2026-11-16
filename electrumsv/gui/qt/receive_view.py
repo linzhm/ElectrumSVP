@@ -21,6 +21,7 @@ from .qrcodewidget import QRCodeWidget
 from .qrwindow import QR_Window
 from .request_list import RequestList
 from .table_widgets import TableTopButtonLayout
+from .form_scroll_area import FormScrollArea
 from .util import ButtonsLineEdit, EnterButton, HelpLabel
 
 
@@ -49,7 +50,7 @@ class ReceiveView(QWidget):
         vbox = QVBoxLayout(self)
         vbox.setContentsMargins(16, 16, 16, 16)
         vbox.setSpacing(20)
-        vbox.addLayout(form_layout)
+        vbox.addWidget(FormScrollArea(form_layout, self))
         vbox.addWidget(request_container, 1)
         self.setLayout(vbox)
 

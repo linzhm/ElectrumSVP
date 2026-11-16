@@ -127,6 +127,53 @@ def test_message_hash_preserves_spaces_newlines_and_unicode(gui):
         assert review.digest.text() == hashlib.sha256(text.encode('utf8')).hexdigest().upper()
 
 
+def test_polling_preserves_connection_result_until_device_state_changes():
+    from dataclasses import replace
+    from electrumsv.devices.hardware import DeviceStatus
+    from electrumsv.gui.qt.hardware_status import merge_probe_results
+    from electrumsv.gui.qt.hardware import device_status_text
+    from electrumsv.i18n import _
+    row = DeviceStatus('ledger', 'Nano X', 'bch_ready', 'Ready',
+        app='Bitcoin Cash', version='2.4.14', device=SimpleNamespace(id_='x'))
+    failed = replace(row, check_error='Account key does not match')
+    assert merge_probe_results((failed,), (row,))[0].check_error == failed.check_error
+    passed = replace(row, verified_xpubs=('checked-xpub',))
+    assert merge_probe_results((passed,), (row,))[0].verified_xpubs == ('checked-xpub',)
+    locked = replace(row, state='locked', detail='Unlock', app='', version='')
+    result = merge_probe_results((passed,), (locked,))[0]
+    assert not result.verified_xpubs and not result.check_error
+    assert device_status_text(result) == _('Locked')
+    assert not merge_probe_results((result,), (row,))[0].verified_xpubs
+    assert merge_probe_results((passed,), ()) == ()
+
+
+def test_probe_updates_rows_without_replacing_selection_or_focus(gui):
+    from dataclasses import replace
+    from electrumsv.devices.hardware import DeviceStatus
+    from electrumsv.gui.qt.hardware import HardwareWalletDialog
+    parent = QWidget(); dialog = HardwareWalletDialog(parent)
+    rows = [DeviceStatus('ledger', 'Nano {}'.format(i), 'locked', 'Unlock',
+        device=SimpleNamespace(id_=str(i))) for i in range(25)]
+    dialog.show(); dialog.show_rows(rows); gui.processEvents()
+    selected = dialog.devices.topLevelItem(15)
+    dialog.devices.setCurrentItem(selected)
+    dialog.devices.setFocus(); dialog.devices.scrollToItem(selected)
+    gui.processEvents()
+    position = dialog.devices.verticalScrollBar().value()
+    focus = gui.focusWidget()
+    updated = list(rows); updated[15] = replace(rows[15], state='bch_ready',
+        app='Bitcoin Cash', version='2.4.14')
+    dialog.show_rows(updated); gui.processEvents()
+    assert dialog.devices.currentItem() is selected
+    assert gui.focusWidget() is focus
+    assert dialog.devices.verticalScrollBar().value() == position
+    assert not dialog.select_button.isEnabled()
+    dialog.show_rows(updated[:15] + updated[16:]); gui.processEvents()
+    assert dialog.devices.currentItem() is None
+    assert not dialog.connect_button.isEnabled() and not dialog.select_button.isEnabled()
+    dialog.reject(); parent.close()
+
+
 def test_candidates_require_connection_check_before_selection(gui, monkeypatch):
     from dataclasses import replace
     from PyQt5.QtCore import Qt
@@ -302,3 +349,22 @@ def test_picker_can_close_during_connection_without_selecting_late_result(gui):
     pending[0](future)
     assert support.selected_device is None
     assert not dialog.select_button.isEnabled()
+
+
+@pytest.mark.parametrize('points', [13, 18])
+def test_signing_options_fit_wrapped_warning_and_default_to_continue(gui, points):
+    from electrumsv.gui.qt.hardware import LedgerSigningOptionsDialog
+    from electrumsv.tests.test_external_signing import transaction
+    from PyQt5.QtWidgets import QPushButton
+    parent = QWidget(); dialog = LedgerSigningOptionsDialog(parent, transaction()[0])
+    font = dialog.font(); font.setPointSize(points); dialog.setFont(font)
+    dialog.show(); gui.processEvents()
+    for enabled in (True, False):
+        dialog.verify_inputs.setChecked(enabled)
+        dialog.resize(500, 200); gui.processEvents()
+        assert dialog.note.height() >= dialog.note.heightForWidth(dialog.note.width())
+        assert dialog.note.geometry().bottom() < dialog.proceed_button.geometry().top()
+        assert dialog.proceed_button.isDefault()
+        assert all(not b.isDefault() for b in dialog.findChildren(QPushButton)
+            if b is not dialog.proceed_button)
+    dialog.reject()
