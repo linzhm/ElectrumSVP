@@ -585,3 +585,83 @@ msgstr ""
 #: electrumsv/gui/qt/preferences.py
 msgid "System"
 msgstr ""
+
+#: electrumsv/gui/qt/hardware.py
+msgid "Account key matches"
+msgstr ""
+
+#: electrumsv/gui/qt/hardware.py
+msgid "Account public key checked. It will be checked again before signing."
+msgstr ""
+
+#: electrumsv/gui/qt/hardware.py
+msgid ""
+"Choose a detected device, connect it, then select it after the account key "
+"check passes."
+msgstr ""
+
+#: electrumsv/gui/qt/hardware.py
+msgid "Choose a device and connect it to check the account public key."
+msgstr ""
+
+#: electrumsv/gui/qt/hardware.py
+msgid "Connect"
+msgstr ""
+
+#: electrumsv/gui/qt/hardware.py
+msgid "Connect and unlock a hardware wallet to begin."
+msgstr ""
+
+#: electrumsv/gui/qt/hardware.py
+msgid "Connection cancelled. Select the device and retry."
+msgstr ""
+
+#: electrumsv/gui/qt/hardware.py
+msgid "Connection details"
+msgstr ""
+
+#: electrumsv/gui/qt/hardware_status.py
+msgid "Hardware account key checked; ready to use"
+msgstr ""
+
+#: electrumsv/gui/qt/hardware_status.py
+msgid "Hardware device detected, but not available for this account"
+msgstr ""
+
+#: electrumsv/gui/qt/hardware.py
+msgid ""
+"No devices detected. Connect a hardware wallet; this list updates "
+"automatically."
+msgstr ""
+
+#: electrumsv/gui/qt/hardware_status.py
+msgid "No hardware devices detected"
+msgstr ""
+
+#: electrumsv/gui/qt/hardware.py
+msgid "Select"
+msgstr ""
+
+#: electrumsv/devices/hardware.py
+msgid "Select a detected device."
+msgstr ""
+
+#: electrumsv/device.py
+msgid ""
+"The selected device cannot provide this account key. Check the derivation "
+"path and passphrase, or select another device."
+msgstr ""
+
+#: electrumsv/devices/hw_wallet/plugin.py
+msgid "The selected device is not ready. Unlock it and retry."
+msgstr ""
+
+#: electrumsv/device.py
+msgid ""
+"The selected device uses a different hardware adapter. Select a compatible "
+"device and retry."
+msgstr ""
+
+#: electrumsv/devices/ledger/ledger.py
+msgid "This USB interface does not support Ledger wallet communication."
+msgstr ""

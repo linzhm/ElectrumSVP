@@ -4379,3 +4379,101 @@ msgstr ""
 msgid "System"
 msgstr "跟随系统"
 
+# ElectrumSVP hardware flow. Chinese translation added with this patch.
+#: electrumsv/device.py
+msgid ""
+"The selected device cannot provide this account key. Check the derivation "
+"path and passphrase, or select another device."
+msgstr "所选设备无法提供此账户的密钥。请核对派生路径和附加口令，或选择其他设备。"
+
+# ElectrumSVP hardware flow. Chinese translation added with this patch.
+#: electrumsv/device.py
+msgid ""
+"The selected device uses a different hardware adapter. Select a compatible "
+"device and retry."
+msgstr "所选设备与此硬件签名器不兼容。请选择兼容设备后重试。"
+
+# ElectrumSVP hardware flow. Chinese translation added with this patch.
+#: electrumsv/devices/hardware.py
+msgid "Select a detected device."
+msgstr "请选择已检测到的设备。"
+
+# ElectrumSVP hardware flow. Chinese translation added with this patch.
+#: electrumsv/devices/hw_wallet/plugin.py
+msgid "The selected device is not ready. Unlock it and retry."
+msgstr "所选设备尚未就绪。请解锁后重试。"
+
+# ElectrumSVP hardware flow. Chinese translation added with this patch.
+#: electrumsv/devices/ledger/ledger.py
+msgid "This USB interface does not support Ledger wallet communication."
+msgstr "此 USB 接口不支持 Ledger 钱包通信。"
+
+# ElectrumSVP hardware flow. Chinese translation added with this patch.
+#: electrumsv/gui/qt/hardware.py
+msgid "Account public key checked. It will be checked again before signing."
+msgstr "账户公钥已核对。签名前仍会再次核对。"
+
+# ElectrumSVP hardware flow. Chinese translation added with this patch.
+#: electrumsv/gui/qt/hardware.py
+msgid "Connect"
+msgstr "连接"
+
+# ElectrumSVP hardware flow. Chinese translation added with this patch.
+#: electrumsv/gui/qt/hardware.py
+msgid "Connection details"
+msgstr "连接详情"
+
+# ElectrumSVP hardware flow. Chinese translation added with this patch.
+#: electrumsv/gui/qt/hardware.py
+msgid "Account key matches"
+msgstr "账户公钥匹配"
+
+# ElectrumSVP hardware flow. Chinese translation added with this patch.
+#: electrumsv/gui/qt/hardware.py
+msgid "Connection cancelled. Select the device and retry."
+msgstr "已取消连接。请选择设备后重试。"
+
+# ElectrumSVP hardware flow. Chinese translation added with this patch.
+#: electrumsv/gui/qt/hardware.py
+msgid "Connect and unlock a hardware wallet to begin."
+msgstr "请先接入并解锁硬件钱包。"
+
+# ElectrumSVP hardware flow. Chinese translation added with this patch.
+#: electrumsv/gui/qt/hardware.py
+msgid ""
+"No devices detected. Connect a hardware wallet; this list updates "
+"automatically."
+msgstr "未检测到设备。请接入硬件钱包，列表将自动更新。"
+
+# ElectrumSVP hardware flow. Chinese translation added with this patch.
+#: electrumsv/gui/qt/hardware.py
+msgid "Choose a device and connect it to check the account public key."
+msgstr "请选择设备并连接，以核对账户公钥。"
+
+# ElectrumSVP hardware flow. Chinese translation added with this patch.
+#: electrumsv/gui/qt/hardware.py
+msgid "Select"
+msgstr "选择"
+
+# ElectrumSVP hardware flow. Chinese translation added with this patch.
+#: electrumsv/gui/qt/hardware.py
+msgid ""
+"Choose a detected device, connect it, then select it after the account key "
+"check passes."
+msgstr "先选取已检测到的设备并连接，账户公钥核对通过后，再点击“选择”。"
+
+# ElectrumSVP hardware flow. Chinese translation added with this patch.
+#: electrumsv/gui/qt/hardware_status.py
+msgid "Hardware account key checked; ready to use"
+msgstr "硬件钱包账户公钥已核对，可以使用"
+
+# ElectrumSVP hardware flow. Chinese translation added with this patch.
+#: electrumsv/gui/qt/hardware_status.py
+msgid "No hardware devices detected"
+msgstr "未检测到硬件钱包设备"
+
+# ElectrumSVP hardware flow. Chinese translation added with this patch.
+#: electrumsv/gui/qt/hardware_status.py
+msgid "Hardware device detected, but not available for this account"
+msgstr "已检测到硬件钱包，但暂不能用于此账户"
+

@@ -4393,3 +4393,126 @@ msgstr ""
 msgid "System"
 msgstr "ระบบ"
 
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/device.py
+msgid ""
+"The selected device cannot provide this account key. Check the derivation "
+"path and passphrase, or select another device."
+msgstr ""
+"อุปกรณ์ที่เลือกไม่สามารถให้รหัสบัญชีนี้ได้ "
+"ตรวจสอบเส้นทางที่มาและข้อความรหัสผ่าน หรือเลือกอุปกรณ์อื่น"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/device.py
+msgid ""
+"The selected device uses a different hardware adapter. Select a compatible "
+"device and retry."
+msgstr ""
+"อุปกรณ์ที่เลือกใช้อะแดปเตอร์ฮาร์ดแวร์อื่น "
+"เลือกอุปกรณ์ที่ใช้งานร่วมกันได้และลองอีกครั้ง"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/devices/hardware.py
+msgid "Select a detected device."
+msgstr "เลือกอุปกรณ์ที่ตรวจพบ"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/devices/hw_wallet/plugin.py
+msgid "The selected device is not ready. Unlock it and retry."
+msgstr "อุปกรณ์ที่เลือกไม่พร้อม ปลดล็อคแล้วลองอีกครั้ง"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/devices/ledger/ledger.py
+msgid "This USB interface does not support Ledger wallet communication."
+msgstr "อินเทอร์เฟซ USB นี้ไม่รองรับการสื่อสารกระเป๋าเงิน Ledger"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Account public key checked. It will be checked again before signing."
+msgstr "ตรวจสอบรหัสสาธารณะของบัญชีแล้ว จะมีการตรวจสอบอีกครั้งก่อนลงนาม"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Connect"
+msgstr "เชื่อมต่อ"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Connection details"
+msgstr "รายละเอียดการเชื่อมต่อ"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Account key matches"
+msgstr "การจับคู่คีย์บัญชี"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Connection cancelled. Select the device and retry."
+msgstr "การเชื่อมต่อถูกยกเลิก เลือกอุปกรณ์แล้วลองอีกครั้ง"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Connect and unlock a hardware wallet to begin."
+msgstr "เชื่อมต่อและปลดล็อคกระเป๋าสตางค์ฮาร์ดแวร์เพื่อเริ่มต้น"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid ""
+"No devices detected. Connect a hardware wallet; this list updates "
+"automatically."
+msgstr ""
+"ไม่พบอุปกรณ์ เชื่อมต่อกระเป๋าเงินฮาร์ดแวร์ รายการนี้อัปเดตโดยอัตโนมัติ"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Choose a device and connect it to check the account public key."
+msgstr "เลือกอุปกรณ์และเชื่อมต่อเพื่อตรวจสอบรหัสสาธารณะของบัญชี"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Select"
+msgstr "เลือก"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid ""
+"Choose a detected device, connect it, then select it after the account key "
+"check passes."
+msgstr ""
+"เลือกอุปกรณ์ที่ตรวจพบ เชื่อมต่อ "
+"จากนั้นเลือกอุปกรณ์หลังจากผ่านการตรวจสอบคีย์บัญชีแล้ว"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware_status.py
+msgid "Hardware account key checked; ready to use"
+msgstr "ตรวจสอบรหัสบัญชีฮาร์ดแวร์แล้ว พร้อมใช้งาน"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware_status.py
+msgid "No hardware devices detected"
+msgstr "ไม่พบอุปกรณ์ฮาร์ดแวร์"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware_status.py
+msgid "Hardware device detected, but not available for this account"
+msgstr "ตรวจพบอุปกรณ์ฮาร์ดแวร์ แต่ไม่พร้อมใช้งานสำหรับบัญชีนี้"
+

@@ -4395,3 +4395,135 @@ msgstr ""
 msgid "System"
 msgstr "Σύστημα"
 
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/device.py
+msgid ""
+"The selected device cannot provide this account key. Check the derivation "
+"path and passphrase, or select another device."
+msgstr ""
+"Η επιλεγμένη συσκευή δεν μπορεί να παρέχει αυτό το κλειδί λογαριασμού. "
+"Ελέγξτε τη διαδρομή παραγωγής και τη φράση πρόσβασης ή επιλέξτε άλλη "
+"συσκευή."
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/device.py
+msgid ""
+"The selected device uses a different hardware adapter. Select a compatible "
+"device and retry."
+msgstr ""
+"Η επιλεγμένη συσκευή χρησιμοποιεί διαφορετικό προσαρμογέα υλικού. Επιλέξτε "
+"μια συμβατή συσκευή και δοκιμάστε ξανά."
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/devices/hardware.py
+msgid "Select a detected device."
+msgstr "Επιλέξτε μια συσκευή που εντοπίστηκε."
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/devices/hw_wallet/plugin.py
+msgid "The selected device is not ready. Unlock it and retry."
+msgstr ""
+"Η επιλεγμένη συσκευή δεν είναι έτοιμη. Ξεκλειδώστε το και δοκιμάστε ξανά."
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/devices/ledger/ledger.py
+msgid "This USB interface does not support Ledger wallet communication."
+msgstr "Αυτή η διεπαφή USB δεν υποστηρίζει επικοινωνία πορτοφολιού Ledger."
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Account public key checked. It will be checked again before signing."
+msgstr ""
+"Έλεγξε το δημόσιο κλειδί του λογαριασμού. Θα ελεγχθεί ξανά πριν την "
+"υπογραφή."
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Connect"
+msgstr "Συνδέω"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Connection details"
+msgstr "Λεπτομέρειες σύνδεσης"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Account key matches"
+msgstr "Το κλειδί λογαριασμού ταιριάζει"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Connection cancelled. Select the device and retry."
+msgstr "Η σύνδεση ακυρώθηκε. Επιλέξτε τη συσκευή και δοκιμάστε ξανά."
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Connect and unlock a hardware wallet to begin."
+msgstr "Συνδέστε και ξεκλειδώστε ένα πορτοφόλι υλικού για να ξεκινήσετε."
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid ""
+"No devices detected. Connect a hardware wallet; this list updates "
+"automatically."
+msgstr ""
+"Δεν εντοπίστηκαν συσκευές. Συνδέστε ένα πορτοφόλι υλικού. αυτή η λίστα "
+"ενημερώνεται αυτόματα."
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Choose a device and connect it to check the account public key."
+msgstr ""
+"Επιλέξτε μια συσκευή και συνδέστε την για να ελέγξετε το δημόσιο κλειδί του "
+"λογαριασμού."
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Select"
+msgstr "Επιλέγω"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid ""
+"Choose a detected device, connect it, then select it after the account key "
+"check passes."
+msgstr ""
+"Επιλέξτε μια συσκευή που εντοπίστηκε, συνδέστε την και, στη συνέχεια, "
+"επιλέξτε την αφού περάσει ο έλεγχος κλειδιού λογαριασμού."
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware_status.py
+msgid "Hardware account key checked; ready to use"
+msgstr "Έλεγξε το κλειδί λογαριασμού υλικού. έτοιμο προς χρήση"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware_status.py
+msgid "No hardware devices detected"
+msgstr "Δεν εντοπίστηκαν συσκευές υλικού"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware_status.py
+msgid "Hardware device detected, but not available for this account"
+msgstr ""
+"Εντοπίστηκε συσκευή υλικού, αλλά δεν είναι διαθέσιμη για αυτόν τον "
+"λογαριασμό"
+

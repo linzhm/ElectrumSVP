@@ -746,3 +746,136 @@ msgstr "Ledger Wallet அங்கீகாரம்"
 msgid "System"
 msgstr "அமைப்பு"
 
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/device.py
+msgid ""
+"The selected device cannot provide this account key. Check the derivation "
+"path and passphrase, or select another device."
+msgstr ""
+"தேர்ந்தெடுக்கப்பட்ட சாதனம் இந்தக் கணக்கு விசையை வழங்க முடியாது. வழித்தோன்றல்"
+" பாதை மற்றும் கடவுச்சொற்றொடரைச் சரிபார்க்கவும் அல்லது மற்றொரு சாதனத்தைத் "
+"தேர்ந்தெடுக்கவும்."
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/device.py
+msgid ""
+"The selected device uses a different hardware adapter. Select a compatible "
+"device and retry."
+msgstr ""
+"தேர்ந்தெடுக்கப்பட்ட சாதனம் வேறு வன்பொருள் அடாப்டரைப் பயன்படுத்துகிறது. "
+"இணக்கமான சாதனத்தைத் தேர்ந்தெடுத்து மீண்டும் முயற்சிக்கவும்."
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/devices/hardware.py
+msgid "Select a detected device."
+msgstr "கண்டறியப்பட்ட சாதனத்தைத் தேர்ந்தெடுக்கவும்."
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/devices/hw_wallet/plugin.py
+msgid "The selected device is not ready. Unlock it and retry."
+msgstr ""
+"தேர்ந்தெடுக்கப்பட்ட சாதனம் தயாராக இல்லை. அதைத் திறந்து மீண்டும் "
+"முயற்சிக்கவும்."
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/devices/ledger/ledger.py
+msgid "This USB interface does not support Ledger wallet communication."
+msgstr "இந்த USB இடைமுகம் Ledger வாலட் தொடர்பை ஆதரிக்காது."
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Account public key checked. It will be checked again before signing."
+msgstr ""
+"கணக்கு பொது விசை சரிபார்க்கப்பட்டது. கையொப்பமிடுவதற்கு முன் அது மீண்டும் "
+"சரிபார்க்கப்படும்."
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Connect"
+msgstr "இணைக்கவும்"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Connection details"
+msgstr "இணைப்பு விவரங்கள்"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Account key matches"
+msgstr "கணக்கு முக்கிய பொருத்தங்கள்"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Connection cancelled. Select the device and retry."
+msgstr ""
+"இணைப்பு ரத்து செய்யப்பட்டது. சாதனத்தைத் தேர்ந்தெடுத்து மீண்டும் "
+"முயற்சிக்கவும்."
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Connect and unlock a hardware wallet to begin."
+msgstr "தொடங்குவதற்கு வன்பொருள் வாலட்டை இணைத்து திறக்கவும்."
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid ""
+"No devices detected. Connect a hardware wallet; this list updates "
+"automatically."
+msgstr ""
+"சாதனங்கள் எதுவும் கண்டறியப்படவில்லை. வன்பொருள் பணப்பையை இணைக்கவும்; இந்த "
+"பட்டியல் தானாகவே புதுப்பிக்கப்படும்."
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Choose a device and connect it to check the account public key."
+msgstr ""
+"கணக்கு பொது விசையைச் சரிபார்க்க சாதனத்தைத் தேர்ந்தெடுத்து அதை இணைக்கவும்."
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid "Select"
+msgstr "தேர்ந்தெடு"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware.py
+msgid ""
+"Choose a detected device, connect it, then select it after the account key "
+"check passes."
+msgstr ""
+"கண்டறியப்பட்ட சாதனத்தைத் தேர்வுசெய்து, அதை இணைத்து, கணக்கு விசை சரிபார்த்த "
+"பிறகு அதைத் தேர்ந்தெடுக்கவும்."
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware_status.py
+msgid "Hardware account key checked; ready to use"
+msgstr "வன்பொருள் கணக்கு விசை சரிபார்க்கப்பட்டது; பயன்படுத்த தயாராக உள்ளது"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware_status.py
+msgid "No hardware devices detected"
+msgstr "வன்பொருள் சாதனங்கள் எதுவும் கண்டறியப்படவில்லை"
+
+# ElectrumSVP hardware flow. Machine translation; native-language review
+# welcome.
+#: electrumsv/gui/qt/hardware_status.py
+msgid "Hardware device detected, but not available for this account"
+msgstr ""
+"வன்பொருள் சாதனம் கண்டறியப்பட்டது, ஆனால் இந்தக் கணக்கிற்குக் கிடைக்கவில்லை"
+
