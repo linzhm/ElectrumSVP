@@ -50,8 +50,6 @@ from .constants import ICON_NAME_INVOICE_PAYMENT
 from .table_widgets import TableTopButtonLayout
 from .util import MyTreeWidget, read_QIcon, MessageBox, SortableTreeWidgetItem
 
-from electrumsv import verification_utils
-from electrumsv.verification_utils import open_simple_verification_window
 
 
 
@@ -347,6 +345,7 @@ class HistoryList(MyTreeWidget):
         # --- BEEF Proof (cache-aware, refresh only once on confirmation) ---
 
         def fetch_and_show_beef():
+            from electrumsv import verification_utils
             try:
                 beef_data = verification_utils.build_beef(
                     tx,
