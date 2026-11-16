@@ -56,7 +56,6 @@ from .paytoedit import PayToEdit
 from .table_widgets import TableTopButtonLayout
 from .util import (ColorScheme, EnterButton, HelpDialogButton, HelpLabel, MyTreeWidget,
     UntrustedMessageDialog, update_fixed_tree_height)
-from .theme import Theme, theme_from_config
 
 if TYPE_CHECKING:
     from .main_window import ElectrumWindow
@@ -430,14 +429,12 @@ class SendView(QWidget):
                     _("are frozen") +
                     ")"
                 )
-            amt_color = "#ff6666"
-        elif theme_from_config(app_state.config) == Theme.DARK:
-            amt_color = "#d0d3d7"
+            amt_color = "palette(bright-text)"
         else:
-            amt_color = "#333333"
+            amt_color = None
 
         self._main_window.statusBar().showMessage(text)
-        self.amount_e.setStyleSheet(f"color: {amt_color};")
+        self.amount_e.setStyleSheet(f"color: {amt_color};" if amt_color else '')
 
 
     def lock_amount(self, flag: bool) -> None:

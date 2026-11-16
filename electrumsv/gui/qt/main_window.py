@@ -131,7 +131,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin):
         theme = theme_from_config(app_state.config)
         dark = theme == Theme.DARK
 
-        apply_windows_title_bar(self, dark)
+        apply_windows_title_bar(self, theme)
         self.setStyleSheet(wallet_window_style(theme))
 
         self._api = WalletAPI(self)

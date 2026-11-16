@@ -108,8 +108,9 @@ class HelpButton(QPushButton):
         self.title = title
         QPushButton.__init__(self, button_text)
         self.help_text = text
-        self.setFocusPolicy(Qt.NoFocus)
+        self.setFocusPolicy(Qt.StrongFocus)
         self.setFixedWidth(20)
+        self.setStyleSheet('QPushButton { padding: 0px; }')
         self.clicked.connect(self._on_clicked)
 
     def _on_clicked(self) -> None:
@@ -957,8 +958,7 @@ class ColorScheme:
 
     @staticmethod
     def update_from_widget(widget):
-        if ColorScheme.has_dark_background(widget):
-            ColorScheme.dark_scheme = True
+        ColorScheme.dark_scheme = ColorScheme.has_dark_background(widget)
 
 
 class SortableTreeWidgetItem(QTreeWidgetItem):
@@ -1136,6 +1136,8 @@ class FormSectionWidget(QWidget):
             minimum_label_width: Optional[int]=None) -> None:
         super().__init__(parent)
 
+        self.setProperty('theme_role', 'form')
+
         if minimum_label_width is not None:
             self.minimum_label_width = minimum_label_width
 
@@ -1187,6 +1189,8 @@ class FormSectionWidget(QWidget):
             result = label
         label.setObjectName("FormSectionLabel")
         label.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
+        if not isinstance(field_object, QLayout):
+            label.setBuddy(field_object)
 
         label_width = label.fontMetrics().boundingRect(label_text).width() + 10
         old_minimum_width = self.minimum_label_width
@@ -1195,7 +1199,8 @@ class FormSectionWidget(QWidget):
 
         grid_layout = QGridLayout()
         grid_layout.setContentsMargins(0, 0, 0, 0)
-        grid_layout.addWidget(label, 0, 0, Qt.AlignRight | Qt.AlignTop)
+        grid_layout.addWidget(label, 0, 0,
+            Qt.AlignRight | (Qt.AlignTop if stretch_field else Qt.AlignVCenter))
         if stretch_field:
             if isinstance(field_object, QLayout):
                 grid_layout.addLayout(field_object, 0, 1, Qt.AlignTop)

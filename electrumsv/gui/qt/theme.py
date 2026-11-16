@@ -3,17 +3,21 @@ from enum import Enum
 
 from PyQt5.QtGui import QColor, QCursor, QPalette
 from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QMainWindow
-from PyQt5.QtCore import QEvent, QObject, QTimer
+from PyQt5.QtCore import QEvent, QObject, QTimer, pyqtSignal
 
 class Theme(Enum):
+    SYSTEM = "system"
     LIGHT = "light"
     DARK = "dark"
     PINK = "pink"
     ORANGE = "orange"
 
 
-def theme_from_config(config, dark_default: bool = True) -> Theme:
+def theme_preference_from_config(config, dark_default: bool = True) -> Theme:
     saved_theme = config.get("theme", None)
+
+    if saved_theme == Theme.SYSTEM.value:
+        return Theme.SYSTEM
 
     if saved_theme == Theme.DARK.value:
         return Theme.DARK
@@ -30,6 +34,58 @@ def theme_from_config(config, dark_default: bool = True) -> Theme:
     # Backward compatibility with existing ElectrumSVP configurations.
     dark_mode = config.get("dark_mode", dark_default)
     return Theme.DARK if dark_mode else Theme.LIGHT
+
+
+def _uses_appkit():
+    return sys.platform == 'darwin' and QApplication.platformName() == 'cocoa'
+
+
+def system_theme() -> Theme:
+    if _uses_appkit():
+        from .macos_appearance import is_dark
+        return Theme.DARK if is_dark() else Theme.LIGHT
+    app = QApplication.instance()
+    palette = app.style().standardPalette() if app else QPalette()
+    return Theme.DARK if palette.color(QPalette.Window).lightness() < 128 else Theme.LIGHT
+
+
+def resolve_theme(theme: Theme) -> Theme:
+    return system_theme() if theme == Theme.SYSTEM else theme
+
+
+def theme_from_config(config, dark_default: bool = True) -> Theme:
+    return resolve_theme(theme_preference_from_config(config, dark_default))
+
+
+class ThemeController(QObject):
+    changed = pyqtSignal(object)
+
+    def __init__(self, app, preference):
+        super().__init__(app)
+        self.app = app
+        self._timer = QTimer(self)
+        self._timer.setInterval(1000)
+        self._timer.timeout.connect(self.refresh_system_theme)
+        self.select(preference)
+
+    def select(self, preference):
+        self.preference = preference
+        # Apply the native override before resolving System; nil restores AppKit's
+        # effective system appearance rather than reading our previous override.
+        if _uses_appkit():
+            from .macos_appearance import set_appearance
+            set_appearance(None if preference == Theme.SYSTEM else preference == Theme.DARK)
+        self.effective = resolve_theme(preference)
+        apply_theme(self.app, self.effective)
+        self.changed.emit(self.effective)
+        if preference == Theme.SYSTEM:
+            self._timer.start()
+        else:
+            self._timer.stop()
+
+    def refresh_system_theme(self):
+        if self.preference == Theme.SYSTEM and system_theme() != self.effective:
+            self.select(Theme.SYSTEM)
 
 
 LIGHT_THEME = """
@@ -1890,6 +1946,33 @@ QTreeView::item:selected {
 """
 
 
+def theme_palette(theme: Theme) -> QPalette:
+    # Start fresh on every switch. Reusing app.palette() retains the previous
+    # native dark palette in controls that a stylesheet does not cover.
+    colors = {
+        Theme.LIGHT: ('#f2f2f2', '#ffffff', '#f5f8fa', '#222222', '#d3ebff', '#000000'),
+        Theme.DARK: ('#202124', '#303236', '#383b40', '#e8eaed', '#526b88', '#ffffff'),
+        Theme.PINK: ('#e7bfd0', '#eed5df', '#d4aabd', '#30252c', '#bd4f7a', '#ffffff'),
+        Theme.ORANGE: ('#ead1ad', '#ffffff', '#e7c9a5', '#3a2a1a', '#f7931a', '#ffffff'),
+    }
+    window, base, alternate, text, highlight, highlighted = colors[theme]
+    palette = QPalette(QColor(window))
+    for role, color in ((QPalette.Window, window), (QPalette.Base, base),
+            (QPalette.AlternateBase, alternate), (QPalette.WindowText, text),
+            (QPalette.Text, text), (QPalette.Button, base), (QPalette.ButtonText, text),
+            (QPalette.ToolTipBase, base), (QPalette.ToolTipText, text),
+            (QPalette.Highlight, highlight), (QPalette.HighlightedText, highlighted),
+            (QPalette.BrightText, '#ff8080' if theme == Theme.DARK else '#b42318'),
+            (QPalette.PlaceholderText, '#aeb2b8' if theme == Theme.DARK else '#62666d'),
+            (QPalette.Link, '#70b7ff' if theme == Theme.DARK else '#005bbb'),
+            (QPalette.LinkVisited, '#b8a0eb' if theme == Theme.DARK else '#7040a0')):
+        palette.setColor(role, QColor(color))
+    for role in (QPalette.WindowText, QPalette.Text, QPalette.ButtonText):
+        palette.setColor(QPalette.Disabled, role,
+            QColor('#92969c' if theme == Theme.DARK else '#777777'))
+    return palette
+
+
 def apply_theme(app, theme: Theme) -> None:
     if theme == Theme.DARK:
         stylesheet = DARK_THEME
@@ -1900,19 +1983,21 @@ def apply_theme(app, theme: Theme) -> None:
     else:
         stylesheet = LIGHT_THEME
 
+    app.setStyleSheet('')
+    app.setPalette(theme_palette(theme))
     app.setStyleSheet(stylesheet)
-
-    palette = app.palette()
-    if theme == Theme.DARK:
-        palette.setColor(QPalette.Link, QColor("#70B7FF"))
-        palette.setColor(QPalette.LinkVisited, QColor("#70B7FF"))
-    app.setPalette(palette)
 
     dark = theme == Theme.DARK
 
 
     # Remember the current theme for newly-created windows.
     app._dark_theme = dark
+
+    for widget in app.allWidgets():
+        if widget.property('theme_role') == 'form':
+            widget.update_theme(theme)
+        elif widget.property('theme_role') == 'account_types':
+            widget.setStyleSheet(account_types_style(theme))
 
     for window in app.topLevelWidgets():
         if isinstance(window, (QMainWindow, QDialog)):

@@ -46,11 +46,9 @@ from electrumsv.wallet import AbstractAccount, Wallet
 
 from .util import Buttons, CloseButton, FormSectionWidget, HelpButton, HelpLabel, MessageBox
 from .theme import (
-    apply_theme,
-    form_style,
-    wallet_window_style,
     Theme,
     theme_from_config,
+    theme_preference_from_config,
     apply_windows_title_bar,
 )
 
@@ -114,6 +112,11 @@ class PreferencesDialog(QDialog):
         vbox.addStretch(1)
         vbox.addLayout(Buttons(CloseButton(self)))
         self.setLayout(vbox)
+        # Keep the existing pages and native controls, with consistent field sizes.
+        for field in self.findChildren(QComboBox):
+            field.setMinimumWidth(max(160, field.minimumWidth()))
+        for field in self.findChildren(QSpinBox):
+            field.setMinimumWidth(max(64, field.minimumWidth()))
 
     def tx_widgets(self, tab: QWidget) -> None:
         unconf_cb = QCheckBox(_('Spend only confirmed coins'))
@@ -228,11 +231,12 @@ class PreferencesDialog(QDialog):
         #                      _("Install the zbar package to enable this."))
         qr_combo = QComboBox()
         qr_combo.view().setMinimumWidth(175)
-        qr_combo.addItem("Default", "default")
+        qr_combo.addItem(_("Default"), "default")
         system_cameras = qrscanner.find_system_cameras()
         for camera, device in system_cameras.items():
             qr_combo.addItem(camera, device)
-        qr_combo.setCurrentIndex(qr_combo.findData(app_state.config.get("video_device")))
+        qr_combo.setCurrentIndex(max(0,
+            qr_combo.findData(app_state.config.get("video_device", "default"))))
         def on_video_device(index):
             app_state.config.set_key("video_device", qr_combo.itemData(index), True)
         qr_combo.currentIndexChanged.connect(on_video_device)
@@ -599,19 +603,11 @@ class PreferencesDialog(QDialog):
         # Theme selection
         theme_label = QLabel(_("Theme"))
         theme_combo = QComboBox()
-        theme_combo.addItems([_("Light"), _("Dark"), _("Pink"), _("Orange")])        
+        themes = [Theme.SYSTEM, Theme.LIGHT, Theme.DARK, Theme.PINK, Theme.ORANGE]
+        theme_combo.addItems([_("System"), _("Light"), _("Dark"), _("Pink"), _("Orange")])
         theme_combo.view().setMinimumWidth(75)
 
-        theme = app_state.app._theme
-
-        if theme == Theme.DARK:
-            theme_combo.setCurrentIndex(1)
-        elif theme == Theme.PINK:
-            theme_combo.setCurrentIndex(2)
-        elif theme == Theme.ORANGE:
-            theme_combo.setCurrentIndex(3)
-        else:
-            theme_combo.setCurrentIndex(0)
+        theme_combo.setCurrentIndex(themes.index(theme_preference_from_config(app_state.config)))
 
         options_box = QGroupBox()
         options_vbox = QVBoxLayout()
@@ -629,28 +625,7 @@ class PreferencesDialog(QDialog):
         form.add_row(_("Options"), options_box, stretch_field=True)
 
         def on_theme_changed(index: int) -> None:
-
-            if index == 1:
-                theme = Theme.DARK
-            elif index == 2:
-                theme = Theme.PINK
-            elif index == 3:
-                theme = Theme.ORANGE
-            else:
-                theme = Theme.LIGHT
-
-            dark = theme == Theme.DARK
-
-            app_state.app.set_theme(theme)
-
-            self._main_window.setStyleSheet(
-                wallet_window_style(theme)
-            )
-
-            for form_widget in self.findChildren(FormSectionWidget):
-                form_widget.update_theme(theme)
-
-            apply_windows_title_bar(self, theme)
+            app_state.app.set_theme(themes[index])
 
 
         theme_combo.currentIndexChanged.connect(on_theme_changed)
