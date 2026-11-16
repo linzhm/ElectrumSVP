@@ -7,6 +7,7 @@ from bitcoinx import PrivateKey, Script
 import pytest
 
 from electrumsv.bitcoin import is_coinbase_mature
+from electrumsv.chain_support import ChainTip, CoinbaseStatus
 from electrumsv.constants import ScriptType, TransactionOutputFlag, TxFlags
 from electrumsv.transaction import Transaction, XTxInput, XTxOutput
 from electrumsv.wallet import AbstractAccount, Wallet
@@ -20,14 +21,16 @@ from electrumsv.wallet_database.migration import create_database, update_databas
     (0, 1000, False), (-1, 1000, False), (None, 1000, False), (1001, 1000, False)])
 def test_reward_balance_and_coin_selection_agree(height, tip, mature):
     reward = SimpleNamespace(tx_hash=b'c' * 32, value=1000, is_coinbase=True)
+    status = CoinbaseStatus.MATURE if mature else CoinbaseStatus.IMMATURE
+    if height is None or not 0 < height <= tip:
+        status = CoinbaseStatus.UNVERIFIED
     account = SimpleNamespace(_utxos_lock=threading.RLock(), _utxos={0: reward},
-        _wallet=SimpleNamespace(get_local_height=lambda: tip,
-            _transaction_cache=SimpleNamespace(get_flags=lambda _: TxFlags.StateSettled)),
+        _wallet=SimpleNamespace(get_local_height=lambda: tip, get_coinbase_status=lambda _: status),
         get_transaction_metadata=lambda _: TxData(height=height))
     assert is_coinbase_mature(height, tip) == mature
     assert bool(AbstractAccount.get_utxos(account, mature=True)) == mature
     expected = (1000, 0, 0) if mature else (0, 0, 1000)
-    if height is None or height <= 0:
+    if status == CoinbaseStatus.UNVERIFIED:
         expected = (0, 0, 0)
     assert AbstractAccount.get_balance(account) == expected
 
@@ -95,9 +98,28 @@ def reward_cache(tmp_path):
     context.close()
 
 
+def wallet_on_chain(cache, tip=599, *, roots=None, tip_hash=b't' * 32):
+    from electrumsv.network import _root_from_proof
+    if roots is None:
+        roots = {}
+        for tx_hash, metadata in cache.get_metadatas():
+            proof = cache.get_proof(tx_hash)
+            if proof is not None:
+                roots[metadata.height] = _root_from_proof(tx_hash, proof.branch, proof.position)
+    chain = SimpleNamespace(height=tip, header_at_height=lambda height: SimpleNamespace(
+        height=height, hash=tip_hash if height == tip else bytes([height % 256]) * 32,
+        merkle_root=roots.get(height, bytes(32))))
+    view = ChainTip(chain, tip, tip_hash)
+    wallet = SimpleNamespace(_transaction_cache=cache, get_local_height=lambda: tip,
+        get_chain_tip=lambda: view)
+    wallet.get_coinbase_status = lambda tx_hash, tip=None: Wallet.get_coinbase_status(wallet, tx_hash, tip)
+    wallet.is_transaction_chain_valid = lambda tx_hash, **kw: Wallet.is_transaction_chain_valid(
+        wallet, tx_hash, **kw)
+    return wallet
+
+
 def eligible(cache, tx_hash, tip=599, **kwargs):
-    wallet = SimpleNamespace(_transaction_cache=cache, get_local_height=lambda: tip)
-    return Wallet.is_transaction_chain_valid(wallet, tx_hash, **kwargs)
+    return wallet_on_chain(cache, tip).is_transaction_chain_valid(tx_hash, **kwargs)
 
 
 def flush(store):
@@ -227,3 +249,116 @@ def test_reward_removed_from_all_subscriptions_is_invalidated(reward_cache, monk
     asyncio.run(AbstractAccount.set_key_history(account, 7, ScriptType.P2PKH, [], {}))
     flush(store)
     assert bool(cache.get_flags(reward.hash()) & TxFlags.StateSettled) == another_key_reports_reward
+
+
+@pytest.mark.parametrize('reward_parent,tip,selectable', [
+    (False, 598, True), (True, 599, True), (True, 598, False)])
+def test_zero_confirmation_selection_preserved_except_invalid_reward_ancestry(
+        reward_cache, reward_parent, tip, selectable):
+    cache, store, reward = reward_cache
+    parent_hash = reward.hash() if reward_parent else b'e' * 32
+    tx = Transaction(2, [XTxInput(parent_hash, 2, Script(), 0xffffffff)],
+        [XTxOutput(800, reward.outputs[2].script_pubkey)], 0)
+    with SynchronousWriter() as writer:
+        cache.add([(tx.hash(), TxData(height=0), tx, TxFlags.StateCleared, None)],
+            writer.get_callback())
+        assert writer.succeeded()
+    wallet = SimpleNamespace(_transaction_cache=cache, get_local_height=lambda: tip,
+        is_transaction_chain_valid=lambda tx_hash: eligible(cache, tx_hash, tip))
+    utxo = SimpleNamespace(tx_hash=tx.hash(), value=800, is_coinbase=False)
+    account = SimpleNamespace(_utxos_lock=threading.RLock(), _utxos={0: utxo}, _wallet=wallet,
+        get_transaction_metadata=cache.get_metadata)
+    assert bool(AbstractAccount.get_utxos(account, mature=True)) == selectable
+    assert AbstractAccount.get_utxos(account, mature=True, confirmed_only=True) == []
+    assert AbstractAccount.get_balance(account) == ((0, 800, 0) if selectable else (0, 0, 0))
+
+
+@pytest.mark.parametrize('fork_tip', [599, 650])
+def test_selected_fork_blocks_old_reward_before_async_reorg_cleanup(reward_cache, fork_tip):
+    cache, store, reward = reward_cache
+    tx_hash = reward.hash()
+    original = wallet_on_chain(cache, 599)
+    assert original.get_coinbase_status(tx_hash) == CoinbaseStatus.MATURE
+    # Same or greater height, but this branch does not contain the reward's proof.
+    fork = wallet_on_chain(cache, fork_tip, roots={500: b'f' * 32}, tip_hash=b'n' * 32)
+    assert cache.get_flags(tx_hash) & TxFlags.StateSettled  # Cleanup has not run yet.
+    assert fork.get_coinbase_status(tx_hash) == CoinbaseStatus.UNVERIFIED
+    assert not fork.is_transaction_chain_valid(tx_hash)
+    utxo = SimpleNamespace(tx_hash=tx_hash, value=900, is_coinbase=True)
+    account = SimpleNamespace(_utxos_lock=threading.RLock(), _utxos={0: utxo}, _wallet=fork,
+        get_transaction_metadata=cache.get_metadata)
+    assert AbstractAccount.get_utxos(account, mature=True) == []
+    assert AbstractAccount.get_balance(account) == (0, 0, 0)
+    assert Wallet.get_tx_height(fork, tx_hash) == (500, 0, False)
+    # Switching back to the proven branch restores eligibility without editing the record.
+    assert original.get_coinbase_status(tx_hash) == CoinbaseStatus.MATURE
+
+
+def test_shorter_selected_tip_makes_reward_immature_again(reward_cache):
+    cache, store, reward = reward_cache
+    assert wallet_on_chain(cache, 599).get_coinbase_status(reward.hash()) == CoinbaseStatus.MATURE
+    assert wallet_on_chain(cache, 598).get_coinbase_status(reward.hash()) == CoinbaseStatus.IMMATURE
+
+
+def test_formerly_confirmed_descendant_cannot_bypass_fork_membership(reward_cache):
+    cache, store, reward = reward_cache
+    child = Transaction(2, [XTxInput(reward.hash(), 2, Script(), 0xffffffff)],
+        [XTxOutput(800, reward.outputs[2].script_pubkey)], 0)
+    with SynchronousWriter() as writer:
+        cache.add([(child.hash(), TxData(height=600, position=1), child, TxFlags.StateSettled, None)],
+            writer.get_callback())
+        assert writer.succeeded()
+    with SynchronousWriter() as writer:
+        cache.update_proof(child.hash(), TxProof(1, [b'q' * 32]), writer.get_callback())
+        assert writer.succeeded()
+    assert wallet_on_chain(cache, 699).is_transaction_chain_valid(child.hash())
+    fork = wallet_on_chain(cache, 699, roots={}, tip_hash=b'n' * 32)
+    assert not fork.is_transaction_chain_valid(child.hash())
+
+
+@pytest.mark.parametrize('legacy_byte_order', [False, True])
+def test_offline_tip_resolves_by_hash_not_only_stored_height(monkeypatch, legacy_byte_order):
+    block_hash = bytes(range(32))
+    chain = SimpleNamespace()
+    headers = Mock()
+    headers.lookup.side_effect = lambda value: (chain, 599) if value == block_hash else (None, -1)
+    monkeypatch.setattr('electrumsv.wallet.app_state', SimpleNamespace(headers=headers))
+    wallet = SimpleNamespace(_network=None, _last_load_height=599,
+        _last_load_hash=block_hash[::-1] if legacy_byte_order else block_hash)
+    tip = Wallet.get_chain_tip(wallet)
+    assert (tip.height, tip.block_hash) == (599, block_hash)
+    wallet._last_load_height = 600
+    assert Wallet.get_chain_tip(wallet) is None
+    headers.longest_chain.assert_not_called()
+
+
+def test_stopping_wallet_persists_actual_tip_method_and_hash_order():
+    from bitcoinx import hash_to_hex_str
+    header = SimpleNamespace(height=599, hash=bytes(range(32)))
+    network = Mock()
+    network.chain.return_value = SimpleNamespace(tip=lambda: header)
+    wallet = SimpleNamespace(_stopped=False, _network=network, _storage=Mock(),
+        _last_load_height=0, _last_load_hash=None, get_accounts=lambda: [], _transaction_table=None)
+    Wallet.stop(wallet)
+    wallet._storage.put.assert_any_call('stored_height', 599)
+    wallet._storage.put.assert_any_call('last_tip_hash', hash_to_hex_str(header.hash))
+
+
+def test_fork_after_reward_keeps_common_ancestor_reward_mature(reward_cache):
+    from electrumsv.network import _root_from_proof
+    cache, store, reward = reward_cache
+    proof = cache.get_proof(reward.hash())
+    root = _root_from_proof(reward.hash(), proof.branch, proof.position)
+    fork = wallet_on_chain(cache, 599, roots={500: root}, tip_hash=b'n' * 32)
+    assert fork.get_coinbase_status(reward.hash()) == CoinbaseStatus.MATURE
+
+
+def test_online_selection_uses_network_chain_not_global_longest(monkeypatch):
+    header = SimpleNamespace(height=599, hash=b's' * 32)
+    selected = SimpleNamespace(height=599, header_at_height=lambda height: header)
+    network = SimpleNamespace(chain=lambda: selected)
+    headers = Mock()
+    monkeypatch.setattr('electrumsv.wallet.app_state', SimpleNamespace(headers=headers))
+    tip = Wallet.get_chain_tip(SimpleNamespace(_network=network))
+    assert (tip.chain, tip.height, tip.block_hash) == (selected, 599, b's' * 32)
+    headers.longest_chain.assert_not_called()

@@ -37,7 +37,7 @@ from PyQt5.QtGui import QBrush, QIcon, QColor, QFont
 from PyQt5.QtWidgets import QLabel, QMenu, QTreeWidgetItem, QVBoxLayout, QWidget
 
 from electrumsv.app_state import app_state
-from electrumsv.bitcoin import is_coinbase_mature
+from electrumsv.chain_support import CoinbaseStatus
 from electrumsv.constants import TxFlags
 from electrumsv.i18n import _
 from electrumsv.logs import logs
@@ -87,7 +87,7 @@ TX_STATUS = {
     TxStatus.UNCONFIRMED: _('Unconfirmed'),
     TxStatus.UNMATURED: _('Unmatured'),
     TxStatus.UNVERIFIED: _('Unverified'),
-    TxStatus.REWARD_UNVERIFIED: _('Mining reward is not in a verified block'),
+    TxStatus.REWARD_UNVERIFIED: _('Mining reward is not verified on the selected chain'),
 }
 
 # This was intended to see if increasing the cell height would cause the monospace fonts to be
@@ -415,9 +415,10 @@ def get_tx_status(account: AbstractAccount, tx_hash: bytes, height: int, conf: i
         if tx is not None and tx.is_coinbase():
             return TxStatus.REWARD_UNVERIFIED
     if metadata.position == 0:
-        if conf == 0 or height <= 0:
+        state = account._wallet.get_coinbase_status(tx_hash)
+        if state == CoinbaseStatus.UNVERIFIED:
             return TxStatus.REWARD_UNVERIFIED
-        if not is_coinbase_mature(height, account._wallet.get_local_height()):
+        if state == CoinbaseStatus.IMMATURE:
             return TxStatus.UNMATURED
     elif conf == 0:
         if height > 0:

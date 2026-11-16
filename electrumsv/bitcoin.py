@@ -49,7 +49,7 @@ COIN = 100000000
 
 
 def is_coinbase_mature(height: Optional[int], tip_height: int) -> bool:
-    """A mempool spend can be mined in the next block; unknown/reorged rewards cannot."""
+    """Numeric maturity only; callers must first prove membership in the selected tip's chain."""
     return height is not None and height > 0 and tip_height + 1 >= height + COINBASE_MATURITY
 
 

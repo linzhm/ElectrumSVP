@@ -49,6 +49,7 @@ from bitcoinx import Bitcoin, P2PKH_Address
 from . import coinchooser
 from .app_state import app_state
 from .bitcoin import compose_chain_string, is_coinbase_mature, ScriptTemplate
+from .chain_support import ChainTip, CoinbaseStatus
 from .constants import (AccountType, CHANGE_SUBPATH, DEFAULT_TXDATA_CACHE_SIZE_MB, DerivationType,
     KeyInstanceFlag, KeystoreTextType, MAXIMUM_TXDATA_CACHE_SIZE_MB, MINIMUM_TXDATA_CACHE_SIZE_MB,
     RECEIVING_SUBPATH, ScriptType, TransactionOutputFlag, TxFlags, WalletEventFlag,
@@ -900,7 +901,6 @@ class AbstractAccount:
 
     def get_utxos(self, exclude_frozen=False, mature=False, confirmed_only=False) -> List[UTXO]:
         '''Note exclude_frozen=True checks for coin-level frozen status. '''
-        tip_height = self._wallet.get_local_height()
         def is_spendable_utxo(utxo):
             metadata = self.get_transaction_metadata(utxo.tx_hash)
             if metadata is None:
@@ -910,11 +910,10 @@ class AbstractAccount:
             if confirmed_only and (metadata.height is None or metadata.height <= 0):
                 return False
             if utxo.is_coinbase:
-                if metadata.height is None or metadata.height <= 0:
+                state = self._wallet.get_coinbase_status(utxo.tx_hash)
+                if state == CoinbaseStatus.UNVERIFIED:
                     return False
-                flags = self._wallet._transaction_cache.get_flags(utxo.tx_hash) or TxFlags.Unset
-                if mature and (not flags & TxFlags.StateSettled or
-                        not is_coinbase_mature(metadata.height, tip_height)):
+                if mature and state != CoinbaseStatus.MATURE:
                     return False
             elif not self._wallet.is_transaction_chain_valid(utxo.tx_hash):
                 return False
@@ -946,11 +945,10 @@ class AbstractAccount:
                     continue
                 metadata_height = cast(int, metadata.height)
                 if o.is_coinbase:
-                    if metadata_height is None or metadata_height <= 0:
+                    state = self._wallet.get_coinbase_status(o.tx_hash)
+                    if state == CoinbaseStatus.UNVERIFIED:
                         continue
-                    flags = self._wallet._transaction_cache.get_flags(o.tx_hash) or TxFlags.Unset
-                    if not flags & TxFlags.StateSettled or not is_coinbase_mature(metadata_height,
-                            self._wallet.get_local_height()):
+                    if state == CoinbaseStatus.IMMATURE:
                         x += o.value
                     else:
                         c += o.value
@@ -1464,7 +1462,8 @@ class AbstractAccount:
         for utxo in utxos:
             if not self._wallet.is_transaction_chain_valid(utxo.tx_hash):
                 raise ValueError(_('A selected coin depends on an unverified or immature mining '
-                    'reward. Wait for confirmation and maturity, then select coins again.'))
+                    'reward on the selected chain. Refresh chain data and wait for maturity, '
+                    'then select coins again.'))
 
         if fixed_fee is None and config.fee_per_kb() is None:
             raise Exception('Dynamic fee estimates not available')
@@ -1676,7 +1675,8 @@ class AbstractAccount:
             raise ValueError(_('Select at least one valid input to sign.'))
         for txin in tx.inputs:
             if not self._wallet.is_transaction_chain_valid(txin.prev_hash):
-                raise ValueError(_('An input depends on an unverified or immature mining reward.'))
+                raise ValueError(_('An input depends on an unverified or immature mining reward '
+                    'on the selected chain. Refresh chain data before retrying.'))
 
         if tx_context is None:
             tx_context = TransactionContext()
@@ -2989,6 +2989,41 @@ class Wallet(TriggeredCallbacks):
     def get_transaction_cache(self) -> TransactionCache:
         return self._transaction_cache
 
+    def get_chain_tip(self) -> Optional[ChainTip]:
+        """Use the selected network chain, or the exact saved tip when offline.
+
+        A stored height alone is insufficient to establish reward maturity. Never substitute
+        an unrelated longest chain for a missing saved offline tip.
+        """
+        if self._network is not None:
+            chain = self._network.chain()
+            if chain is None:
+                return None
+            try:
+                header = chain.header_at_height(chain.height)
+            except MissingHeader:
+                return None
+            return ChainTip(chain, header.height, header.hash)
+        if app_state.headers is None or self._last_load_hash is None:
+            return None
+        # Older SVP wrote raw hash hex, while load_state reads display-order hex.
+        for candidate in (self._last_load_hash, self._last_load_hash[::-1]):
+            chain, height = app_state.headers.lookup(candidate)
+            if chain is not None and height == self._last_load_height:
+                return ChainTip(chain, height, candidate)
+        return None
+
+    def get_coinbase_status(self, tx_hash: bytes, tip: Optional[ChainTip]=None) -> CoinbaseStatus:
+        tip = self.get_chain_tip() if tip is None else tip
+        metadata = self._transaction_cache.get_metadata(tx_hash)
+        flags = self._transaction_cache.get_flags(tx_hash) or TxFlags.Unset
+        if (tip is None or metadata is None or metadata.position != 0 or
+                not flags & TxFlags.StateSettled or not tip.contains(tx_hash, metadata,
+                    self._transaction_cache.get_proof(tx_hash))):
+            return CoinbaseStatus.UNVERIFIED
+        return CoinbaseStatus.MATURE if is_coinbase_mature(metadata.height, tip.height) \
+            else CoinbaseStatus.IMMATURE
+
     def is_transaction_chain_valid(self, tx_hash: bytes, *, for_spending: bool=True) -> bool:
         """Exclude known invalidated/immature coinbase ancestors, retaining all records.
 
@@ -2996,7 +3031,7 @@ class Wallet(TriggeredCallbacks):
         Confirmed ordinary transactions end traversal; unsettled descendants must be checked.
         """
         pending, seen = [tx_hash], set()
-        tip = self.get_local_height()
+        tip = self.get_chain_tip()
         while pending:
             current = pending.pop()
             if current in seen:
@@ -3007,16 +3042,18 @@ class Wallet(TriggeredCallbacks):
             if metadata is None or flags is None:
                 continue
             # A nonzero verified block position proves this is not a coinbase.
-            if flags & TxFlags.StateSettled and metadata.position not in (None, 0):
+            if (flags & TxFlags.StateSettled and metadata.position not in (None, 0) and
+                    tip is not None and tip.contains(current, metadata,
+                        self._transaction_cache.get_proof(current))):
                 continue
             tx = self._transaction_cache.get_transaction(current)
             if metadata.position == 0 or (tx is not None and tx.is_coinbase()):
-                if metadata.height is None or metadata.height <= 0:
+                state = self.get_coinbase_status(current, tip)
+                if state == CoinbaseStatus.UNVERIFIED:
                     return False
-                if for_spending and (not flags & TxFlags.StateSettled or
-                        not is_coinbase_mature(metadata.height, tip)):
+                if for_spending and state != CoinbaseStatus.MATURE:
                     return False
-            elif tx is not None and not flags & TxFlags.StateSettled:
+            elif tx is not None:
                 pending.extend(txin.prev_hash for txin in tx.inputs)
         return True
 
@@ -3025,19 +3062,12 @@ class Wallet(TriggeredCallbacks):
         metadata = self._transaction_cache.get_metadata(tx_hash)
         assert metadata is not None, f"tx {hash_to_hex_str(tx_hash)} is unknown"
         assert metadata.height is not None, f"tx {hash_to_hex_str(tx_hash)} has no height"
-        timestamp = None
-        if metadata.height > 0:
-            chain = app_state.headers.longest_chain()
-            try:
-                header = app_state.headers.header_at_height(chain, metadata.height)
-                timestamp = header.timestamp
-            except MissingHeader:
-                pass
-        if timestamp is not None:
-            conf = max(self.get_local_height() - metadata.height + 1, 0)
-            return metadata.height, conf, timestamp
-        else:
-            return metadata.height, 0, False
+        tip = self.get_chain_tip()
+        if tip is not None and tip.contains(tx_hash, metadata,
+                self._transaction_cache.get_proof(tx_hash)):
+            header = tip.chain.header_at_height(metadata.height)
+            return metadata.height, tip.height - metadata.height + 1, header.timestamp
+        return metadata.height, 0, False
 
     def missing_transactions(self) -> List[bytes]:
         '''Returns a set of tx_hashes.'''
@@ -3411,12 +3441,12 @@ class Wallet(TriggeredCallbacks):
             if callable(chain_obj):
                 chain_obj = chain_obj()         # if chain() returned a function, call it
             if chain_obj is not None and hasattr(chain_obj, 'tip') and chain_obj.tip is not None:
-                chain_tip = chain_obj.tip
+                chain_tip = chain_obj.tip() if callable(chain_obj.tip) else chain_obj.tip
                 local_height = getattr(chain_tip, 'height', local_height)
                 chain_tip_hash = getattr(chain_tip, 'hash', chain_tip_hash)
 
         self._storage.put('stored_height', local_height)
-        self._storage.put('last_tip_hash', chain_tip_hash.hex() if chain_tip_hash else None)
+        self._storage.put('last_tip_hash', hash_to_hex_str(chain_tip_hash) if chain_tip_hash else None)
 
         for account in self.get_accounts():
             account.stop()

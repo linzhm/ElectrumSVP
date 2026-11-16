@@ -540,7 +540,7 @@ class TransactionCache:
             -> List[Tuple[bytes, TransactionCacheEntry]]:
         results = self.get_metadatas(
             flags=TxFlags.HasByteData | TxFlags.HasHeight,
-            mask=TxFlags.HasByteData | TxFlags.HasPosition | TxFlags.HasHeight)
+            mask=TxFlags.HasByteData | TxFlags.HasProofData | TxFlags.HasHeight)
         if len(results) > 200:
             results = results[:200]
         return [ (tx_hash, self._cache[tx_hash]) for (tx_hash, metadata) in results

@@ -83,6 +83,10 @@ class HistoryListTests(unittest.TestCase):
             return local_height
         account._wallet = MockWhatever()
         account._wallet.get_local_height = _get_local_height
+        from electrumsv.chain_support import CoinbaseStatus
+        from electrumsv.bitcoin import is_coinbase_mature
+        account._wallet.get_coinbase_status = lambda _: (CoinbaseStatus.MATURE
+            if is_coinbase_mature(height, local_height) else CoinbaseStatus.IMMATURE)
         timestamp = confs = 1 # Ignored
 
         tx_hash = os.urandom(32)

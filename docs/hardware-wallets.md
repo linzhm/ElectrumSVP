@@ -179,7 +179,8 @@ transaction or original error was provided, so the specific historical failure i
 reproduced. This branch fixes/verifies concrete adjacent cases without changing the owner's data:
 
 - Balance/history and coin selection now use the same maturity boundary: a reward at height H
-  is eligible for a next-block spend when tip + 1 >= H + 100. Unknown, unconfirmed or reorged
+  is eligible for a next-block spend when tip + 1 >= H + 100, after its proof is checked
+  against an ancestor of the selected tip. Unknown, unconfirmed or reorged
   reward heights cannot become spendable merely because the tip is high.
 - Ledger, Trezor and KeepKey signing now receive the transaction's actual version; the earlier
   default of 1 could produce invalid signatures for version-2 transactions.
@@ -191,7 +192,8 @@ reproduced. This branch fixes/verifies concrete adjacent cases without changing 
 
 The separate [coinbase lifecycle patch](hardware/coinbase.md) additionally revokes stale
 proofs on reorg/history removal, blocks known invalid descendants, and requires a new proof
-before reconfirmation. It has temporary SQLite reload and late-proof regressions.
+before reconfirmation. Selection checks proof membership against the selected tip immediately,
+including before asynchronous reorg cleanup. Ordinary zero-confirmation selection remains available. It has temporary SQLite reload and late-proof regressions.
 
 This does not establish arbitrary mining scripts, historical P2PK payouts, huge parent
 transactions or every ElectrumX server's indexing behavior. Existing wallet databases have not
@@ -229,16 +231,16 @@ is first. The probe is offline and has no broadcast operation. For the old macOS
 headless imports may need AppKit loaded first; the probe does this automatically. Building that
 pin locally may require Cython < 3 and setuptools < 66 with build isolation disabled.
 
-Final focused validation: **239 passed** (22 warnings), including the full database test module.
-The isolated coinbase patch was also tested in a separate checkout: **50 passed**. Packaging
+Final focused validation: **251 passed** (22 warnings), including the full database test module.
+The isolated coinbase patch was also tested in a separate checkout: **62 passed**. Packaging
 metadata for all four optional vendor groups was parsed successfully; no signed installer was built.
 
 Full-suite validation is not green in the inherited source: collection fails on the old
 cashaddr test importing an API removed from bitcoinx 0.9. The broader wallet/database selection
 also has ten reproducible failures in the unmodified baseline (legacy seed metadata, testnet
-fixture migration and removed multisig helpers). A SQLite table-lock error additionally occurred
-in an earlier patched run; isolated and later full database-test selections passed. Its
-intermittent cause remains unresolved. Do not
+fixture migration and removed multisig helpers). An intermittent database-test lock was traced to `test_get_height` leaving two background
+writes unfinished before the next test cleared the shared table. That test now waits for both
+commits; the complete database test module passes with the focused suite. Do not
 represent focused regression success as a clean full-suite run.
 
 ## UI acceptance and remaining physical checks

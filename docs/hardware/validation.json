@@ -284,22 +284,32 @@
   },
   "software_validation": {
     "focused_suite": {
-      "passed": 239,
+      "passed": 251,
       "warnings": 22,
       "physical_io": false
     },
     "independent_coinbase_patch_checkout": {
-      "passed": 50,
+      "passed": 62,
       "warnings": 22
-    },
-    "wallet_and_database_selection": {
-      "passed": 41,
-      "expected_failures": 22,
-      "failures": 8,
-      "failures_reproduced_in_unmodified_baseline": true
     },
     "qt_visual_review": "offscreen_mock_status_input_selection_message_hash",
     "optional_dependency_metadata": "four_vendor_groups_validated",
-    "signed_installer": "not_built"
+    "signed_installer": "not_built",
+    "coinbase_selected_tip_cases": [
+      "same_height_fork_before_reward",
+      "longer_fork_before_reward",
+      "fork_after_reward_common_ancestor",
+      "shorter_tip_loses_maturity",
+      "offline_tip_hash_resolution",
+      "ordinary_zero_confirmation",
+      "mature_reward_zero_confirmation_descendant"
+    ],
+    "database_test_race": "fixed_missing_write_completion_in_test_get_height",
+    "wallet_and_vertical_selection": {
+      "passed": 16,
+      "expected_failures": 22,
+      "failures": 10,
+      "failures_reproduced_in_unmodified_baseline": true
+    }
   }
 }
