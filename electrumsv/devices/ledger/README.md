@@ -1,112 +1,46 @@
-# Ledger compatibility in ElectrumSVP
+# Ledger Bitcoin Cash adapter
 
-ElectrumSVP uses the Ledger **Bitcoin Cash** app through the legacy `btchip`
-protocol to sign BSV transactions. With Bitcoin and Bitcoin Cash installed,
-open **Bitcoin Cash** on the device before using the wallet. The device signs;
-ElectrumSVP assembles the transaction and broadcasts it to the BSV network.
+Use the **Bitcoin Cash** device app for BSV. The modern Bitcoin app's PSBT interface
+is not the BCH `0x41` signing protocol. The host assembles and validates transactions;
+network broadcasting remains a separate wallet action.
 
-## Nano S Plus compatibility update
+See [hardware integration and current limits](../../../docs/hardware-wallets.md),
+[firmware / physical validation records](../../../docs/hardware/validation.json), and
+[protocol compatibility history](../../../docs/hardware/ledger-history.md).
 
-This update addresses two host-side problems:
+This adapter now provides:
 
-- Discovery now includes Nano S Plus product IDs `0005`, `5000`, `5011` and
-  `5015` under Ledger vendor ID `2c97`. Existing device IDs are preserved.
-- Setup probes `m/44'/145'/0'`. The old probe, `m/44'/0'`, also requested its
-  parent `m/44'` to calculate the xpub fingerprint. Bitcoin Cash app 2.4.10
-  introduced path restrictions that reject that parent with status `6f00`.
-  The new probe and its parent are both within the allowed paths.
+- Nano S Plus and Nano X enumeration alongside retained Nano S IDs.
+- Distinct labels for devices with colliding serial fields, and exact-device app switching.
+- App-information queries using Ledger's five-byte encoding. Repeated Nano S / BCH 2.4.7
+  tests accepted both four and five bytes; the earlier byte-count diagnosis was retracted.
+- BCH app identity checking, optional automatic app opening after PIN unlock, and bounded
+  reconnects to the selected identity. It never enters PINs, installs apps or changes firmware.
+- A setup probe at `m/44'/145'/0'` compatible with the path restriction introduced in BCH
+  2.4.10. Existing account derivation paths and xpub fingerprints remain unchanged.
+- Transaction-version propagation, signature verification, message-signature validation,
+  bounded USB reads and actionable access-conflict errors.
 
-The probe's result is discarded. It does **not** change the wallet's selected
-path, stored xpub, receiving addresses or change addresses. Existing wallets
-must continue to use their original derivation, commonly `m/44'/0'/0'` or
-`m/44'/145'/0'`. The current BCH app's allowed paths do not include coin type
-`236'`; choosing that path is not a compatibility fix.
+Small transactions now use bounded trusted-parent streaming. Nano S / OS 2.1.0 / BCH 2.4.7
+passed synthetic 2-in/2-out P2PKH, partial signing and bare 2-of-2 multisig with no unverified-input
+warning. Existing signatures survived JSON roundtrips unchanged. S Plus/X still need these
+new physical cases. Budgets are host policy, not measured firmware maxima.
 
-This is a compatibility candidate, **not a claim of verified Nano S Plus BSV
-signing**. Device OS and app versions are separate; record both when testing.
+If parents are missing or exceed a budget, the owner can explicitly choose reduced verification;
+then **unverified inputs** may appear. Invalid in-budget parents are rejected, and device errors
+never silently downgrade. Trusted inputs do not prove chain membership, unspentness or maturity.
+Only `0x41` is requested from BCH. See the [external signing contract](../../../docs/hardware/external-signers.md)
+for partial-signature admission, script scope and the PSBT boundary.
 
-## Using a device
+Our physical tests use synthetic, unspendable transaction inputs. No real wallet files or
+UTXOs were opened and no transaction was broadcast. Public keys, addresses, USB serials and
+signatures from the owner's devices are not stored in the published validation records.
 
-1. Connect and unlock the Ledger using its own buttons.
-2. Open the **Bitcoin Cash** app on the device.
-3. Close Ledger Wallet / Ledger Live and other software accessing the device.
-4. Use ElectrumSVP's hardware-wallet setup, preserving the original derivation
-   when recovering an existing account.
-5. Verify a receiving address on the device before receiving funds. A failed
-   display request is not verification: the address must appear and match on
-   the device's screen.
+Run `python -m contrib.hardware_wallet_probe --mode status` to list devices, then select
+one with `--device-id` for `read`, `display`, `reject`, `sign`, `partial`, `multisig` or `message`. The probe has no
+broadcast mode. App switching may require a button confirmation.
 
-Do not enter a recovery phrase into the computer to test this integration.
-Use a dedicated test device/account and small amounts. Do not update or attempt
-to downgrade a funded device merely to reproduce a compatibility problem.
-
-## Signing scope and verification
-
-The signing code and hardware dependency pins are unchanged. The existing
-implementation deliberately sends outpoints and amounts without full parent
-transactions, because BSV parent transactions can exceed hardware parsing
-limits. This can produce an **unverified inputs** warning. Electron Cash's
-trusted-input implementation needs a separate evaluation of BSV transaction
-limits and fee verification before it can be adopted.
-
-Before declaring a Nano S Plus OS/app combination supported, complete:
-
-| Check | Current evidence |
-| --- | --- |
-| USB discovery, restricted-path setup, old account xpubs | Automated tests with test doubles |
-| Physical device OS and BCH app versions | Not yet recorded |
-| Receiving and change addresses on the device | Physical-device test pending |
-| BSV P2PKH signing: one/multiple inputs, with/without change | Physical-device test pending |
-| Independent verification of signatures, outputs, fees and BSV broadcast | Physical-device test pending |
-| Rejection, disconnect, reconnect and reopening | Physical-device test pending |
-| Large parent transactions, data outputs and multisig | Separate evaluation pending |
-
-The device tests should check `SIGHASH_ALL | FORKID` (`0x41`) signatures and
-confirm the recipient and amount on the device. Software tests do not establish
-what its screen displays or which transactions its app will accept.
-
-## Regression tests
-
-With the project runtime dependencies, `pytest` and the optional Ledger
-hardware libraries installed:
-
-```sh
-python -m pytest -q electrumsv/tests/test_ledger.py \
-  electrumsv/tests/test_keystore.py electrumsv/tests/test_transaction.py
-```
-
-The Ledger tests simulate USB enumeration and BCH public-key path restrictions;
-they never open a physical device. Full xpubs are compared with a public BIP32
-test vector on both wallet networks, for both historical account paths and
-older unrestricted app behavior. These network cases test xpub encoding, not
-device support for testnet signing. Tests skip if the hardware libraries are
-absent; a skipped run is not a Ledger validation result.
-
-On Apple Silicon, building pinned `hidapi==0.10.0` may require older build tools
-(`Cython==0.29.37`, `setuptools==65.7.0`) with build isolation disabled. If its
-import fails with `_NSAppKitVersionNumber`, initialize AppKit before running
-headless tests:
-
-```sh
-python - <<'PYTEST'
-import ctypes
-ctypes.CDLL('/System/Library/Frameworks/AppKit.framework/AppKit', mode=ctypes.RTLD_GLOBAL)
-import pytest
-raise SystemExit(pytest.main([
-    '-q', 'electrumsv/tests/test_ledger.py',
-    'electrumsv/tests/test_keystore.py', 'electrumsv/tests/test_transaction.py',
-]))
-PYTEST
-```
-
-These are local test-environment workarounds, not changes to the published
-requirements. The existing pins document historical macOS exit crashes;
-dependency modernization needs its own platform testing.
-
-## Upstream references
-
-- [Electron Cash setup fix, PR #3265](https://github.com/Electron-Cash/Electron-Cash/pull/3265)
-- [Electron Cash Ledger device list](https://github.com/Electron-Cash/Electron-Cash/blob/694c4d89bdb21447f00bec0375522356743e4e66/electroncash_plugins/ledger/ledger.py)
-- [Ledger BCH 2.4.13 changelog](https://github.com/LedgerHQ/app-bitcoin-legacy/blob/fa287121d830a9ea4518babd09993764d32439fb/CHANGELOG.md)
-- [BCH app path permissions and ForkID](https://github.com/LedgerHQ/app-bitcoin-legacy/blob/fa287121d830a9ea4518babd09993764d32439fb/Makefile)
-- [BCH device-side 0x41 signing](https://github.com/LedgerHQ/lib-app-bitcoin/blob/e369bc30a714b94a110b9f78f3e0569dcba83285/handler/hash_sign.c#L120-L133)
+On Apple Silicon, building the old hidapi pin may require Cython < 3 and setuptools < 66
+with build isolation disabled. Headless imports need AppKit loaded first (the probe does
+this automatically). The pins retain the original project's macOS/Windows compatibility
+rationale; the per-vendor extras keep them optional.

@@ -109,6 +109,8 @@ class QtHandlerBase(QObject):
         self.status_signal.emit(paired)
 
     def _update_status(self, paired):
+        if not hasattr(self, "action"):
+            return
         icon = self.icon_paired if paired else self.icon_unpaired
         self.action.setIcon(read_QIcon(icon))
 
@@ -245,9 +247,9 @@ class QtPluginBase(object):
         if keystore.label and keystore.label.strip():
             action_label = keystore.label.strip()
         action = QAction(read_QIcon(self.icon_unpaired), action_label, window)
-        action.triggered.connect(partial(self.show_settings_wrapped, weakref.proxy(window),
-            keystore))
-        action.setToolTip(_("Hardware Wallet"))
+        from electrumsv.gui.qt.hardware import show_hardware_wallets
+        action.triggered.connect(lambda: show_hardware_wallets(window))
+        action.setToolTip(_("Hardware wallet connection status"))
         window.add_toolbar_action(action)
 
         handler.action = action
