@@ -66,6 +66,9 @@ CalinsQRReader helper is not needed by `scan_barcode()`.
 For startup checks, use the bundle executable with `--help`, then `-D` pointing
 to a fresh temporary profile and `gui --offline`. Repeat with `arch -arm64` and
 `arch -x86_64`. Never use an existing wallet directory for a packaging smoke test.
+When another wallet is running, set `"rpcport": 0` in the temporary profile's config
+so the smoke test uses its own ephemeral loopback port. Do not change the owner's
+normal RPC port. Offline startup also skips the remote header-tip check.
 Source regressions and protocol tests do not substitute for testing hardware
 through the packaged GUI. Intel startup under Rosetta is not an Intel-machine
 hardware test; camera access and older macOS releases also need separate testing.

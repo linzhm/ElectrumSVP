@@ -240,7 +240,8 @@ python -m pytest -q electrumsv/tests/test_hardware.py electrumsv/tests/test_hard
   electrumsv/tests/test_coinbase.py electrumsv/tests/test_qt_gui.py \
   electrumsv/tests/test_keystore.py electrumsv/tests/test_transaction.py \
   electrumsv/tests/test_wallet_database.py electrumsv/tests/test_profile_isolation.py \
-  electrumsv/tests/test_hardware_i18n.py electrumsv/tests/test_theme.py
+  electrumsv/tests/test_hardware_i18n.py electrumsv/tests/test_theme.py \
+  electrumsv/tests/test_headers_startup.py
 ```
 
 For physical tests run `python -m contrib.hardware_wallet_probe --mode status`, then select an
@@ -251,7 +252,7 @@ is first. The probe is offline and has no broadcast operation. For the old macOS
 headless imports may need AppKit loaded first; the probe does this automatically. Building that
 pin locally may require Cython < 3 and setuptools < 66 with build isolation disabled.
 
-Final focused validation: **413 passed** (22 warnings), including the full database test module.
+Final focused validation: **422 passed** (22 warnings), including the full database test module.
 The isolated coinbase patch was also tested in a separate checkout: **62 passed**. Packaging
 metadata for all four optional vendor groups was parsed successfully; no Developer ID-signed or notarized installer was built.
 

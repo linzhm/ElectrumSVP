@@ -287,7 +287,7 @@
   },
   "software_validation": {
     "focused_suite": {
-      "passed": 413,
+      "passed": 422,
       "warnings": 22,
       "physical_io": false
     },
@@ -320,7 +320,8 @@
       "coverage_and_placeholder_tests": "passed",
       "non_Chinese_additions": "machine_translation_native_review_needed"
     },
-    "qt_review_scope": "No owner wallet or USB I/O. Includes Retina glyphs, font-aware amount/unit spacing, segmented controls and modeless device picker. This is not funded signing validation."
+    "qt_review_scope": "No owner wallet or USB I/O. Includes Retina glyphs, font-aware amount/unit spacing, segmented controls and modeless device picker. This is not funded signing validation.",
+    "startup_regression": "Offline startup skips remote header validation; malformed remote results cannot cause a valid local headers file to be backed up/replaced."
   },
   "benchmarks": "ledger-benchmarks.json",
   "known_issues": "known-issues.md"
