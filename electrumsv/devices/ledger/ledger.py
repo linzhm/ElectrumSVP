@@ -468,6 +468,10 @@ class LedgerPlugin(HW_PluginBase):
                    (0x2c97, 0x0004), # Nano-X
                    (0x2c97, 0x4011), # Nano-X app-bitcoin >= 1.5.1
                    (0x2c97, 0x4015), # Nano-X app-bitcoin >= 1.5.1
+                   (0x2c97, 0x0005), # Nano-S-Plus
+                   (0x2c97, 0x5000), # Nano-S-Plus
+                   (0x2c97, 0x5011), # Nano-S-Plus Bitcoin Cash app
+                   (0x2c97, 0x5015), # Nano-S-Plus Bitcoin Cash app
                  ]
 
     def __init__(self, name):
@@ -510,8 +514,10 @@ class LedgerPlugin(HW_PluginBase):
             raise Exception(_('Failed to create a client for this device.') + '\n' +
                             _('Make sure it is in the correct state.'))
         client.handler = self.create_handler(wizard)
-        # TODO replace by direct derivation once Nano S > 1.1
-        client.get_master_public_key("m/44'/0'")
+        # get_master_public_key also derives the parent for its fingerprint.
+        # BCH app >= 2.4.10 rejects m/44', the parent of the old m/44'/0' probe.
+        # Probe an allowed account and parent; this does not set the wallet's path.
+        client.get_master_public_key("m/44'/145'/0'")
 
     def get_master_public_key(self, device_id, derivation, wizard):
         client = app_state.device_manager.client_by_id(device_id)
