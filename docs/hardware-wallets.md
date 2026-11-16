@@ -238,7 +238,9 @@ python -m pytest -q electrumsv/tests/test_hardware.py electrumsv/tests/test_hard
   electrumsv/tests/test_ledger_session.py electrumsv/tests/test_ledger_input_verification.py \
   electrumsv/tests/test_external_signing.py \
   electrumsv/tests/test_coinbase.py electrumsv/tests/test_qt_gui.py \
-  electrumsv/tests/test_keystore.py electrumsv/tests/test_transaction.py
+  electrumsv/tests/test_keystore.py electrumsv/tests/test_transaction.py \
+  electrumsv/tests/test_wallet_database.py electrumsv/tests/test_profile_isolation.py \
+  electrumsv/tests/test_hardware_i18n.py electrumsv/tests/test_theme.py
 ```
 
 For physical tests run `python -m contrib.hardware_wallet_probe --mode status`, then select an
@@ -249,7 +251,7 @@ is first. The probe is offline and has no broadcast operation. For the old macOS
 headless imports may need AppKit loaded first; the probe does this automatically. Building that
 pin locally may require Cython < 3 and setuptools < 66 with build isolation disabled.
 
-Final focused validation: **383 passed** (22 warnings), including the full database test module.
+Final focused validation: **413 passed** (22 warnings), including the full database test module.
 The isolated coinbase patch was also tested in a separate checkout: **62 passed**. Packaging
 metadata for all four optional vendor groups was parsed successfully; no Developer ID-signed or notarized installer was built.
 
@@ -266,9 +268,21 @@ represent focused regression success as a clean full-suite run.
 - **Add account → Connect hardware wallet**: lazy discovery isolates missing vendors, reports
   access errors, and requires an explicit selection when several devices are found. The account
   path is configurable and becomes part of its label. No seed recovery UI is exposed.
-- **Tools → Hardware wallets** and each hardware toolbar icon: read connection/app state; select
-  a device, unlock on the device, request BCH opening and compare the current account's full
-  xpub at its stored path. A transport identity or matching seed family alone is insufficient.
+- **Tools → Hardware wallets** and the **Hardware wallet** toolbar action open an independent,
+  dismissible window listing only detected physical devices, across brands. A highlighted row
+  is a candidate: **Connect** checks the device and the current account's full xpub at its
+  stored path; only a passing row gets a checkmark and enables **Select**. Cancel or closing
+  the window discards the choice, including late connection results. Selecting a device is
+  a session preference; signing rechecks its full xpub and never silently falls back to a
+  different attached device.
+- The toolbar distinguishes no detected devices (red cross), detected but unavailable for
+  the current account (warning), and a matching account xpub (green check). Background reads
+  refresh every five seconds and invalidate matches on account changes. Ledger devices
+  already in BCH can be checked automatically; **Connect** can request BCH opening on the
+  chosen unlocked Ledger. Other vendors use explicit Connect so background polling cannot
+  trigger PIN/passphrase prompts. No host code enters a PIN. Ledger FIDO/U2F interfaces are
+  excluded from wallet candidates, preventing duplicate unavailable rows and the former
+  `NoneType.exchange` error.
 - **Keys → Show address on device / Sign/verify message**: address responses are compared with
   the derived wallet key; message text/hash are preserved exactly. Unsupported hardware
   encrypt/decrypt actions are omitted.
@@ -277,8 +291,12 @@ represent focused regression success as a clean full-suite run.
   does not broadcast.
 
 Headless Qt tests cover worker ownership, cancellation, stale discovery completion, device
-selection, account paths, hash display and partial-input selection. Mock screens were inspected;
-these do not certify physical GUI hardware signing. Still required: P2SH multisig,
+selection, account paths, hash display and partial-input selection. The actual seven main-window
+pages and seven Preferences pages were inspected in Light/Dark on macOS using an isolated empty
+public-test-vector wallet. Mock hardware/network screens also cover English/Chinese. These checks
+do not certify physical GUI hardware signing. Desktop refinements keep the existing page/sidebar
+structure, use the platform general font, reserve separate amount/unit space, and use themed
+Lucide vectors with the upstream ISC/MIT notices bundled in `electrumsv/data/icons/lucide`. Still required: P2SH multisig,
 same-model devices, real Ledger Wallet contention, large real-parent latency, and
 hardware signing through the packaged GUI. Nano S's initial app-switch timeout
 has not been reproduced or explained; later signing successes started with BCH already open.

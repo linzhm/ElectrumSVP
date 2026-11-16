@@ -287,7 +287,7 @@
   },
   "software_validation": {
     "focused_suite": {
-      "passed": 383,
+      "passed": 413,
       "warnings": 22,
       "physical_io": false
     },
@@ -295,7 +295,7 @@
       "passed": 62,
       "warnings": 22
     },
-    "qt_visual_review": "native_macOS_mock_settings_network_hardware_English_Chinese_Light_Dark_and_simulated_System_changes",
+    "qt_visual_review": "native_macOS_actual_main_window_7_pages_and_7_preferences_pages_Light_Dark_empty_public_test_vector_wallet; mock_network_and_hardware_English_Chinese; simulated_System_changes",
     "optional_dependency_metadata": "four_vendor_groups_validated",
     "signed_installer": "local_adhoc_Universal_build_pending_final_rebuild_not_notarized",
     "coinbase_selected_tip_cases": [
@@ -316,10 +316,11 @@
     },
     "localization": {
       "catalogues": 37,
-      "messages": 140,
+      "messages": 158,
       "coverage_and_placeholder_tests": "passed",
       "non_Chinese_additions": "machine_translation_native_review_needed"
-    }
+    },
+    "qt_review_scope": "No owner wallet or USB I/O. Includes Retina glyphs, font-aware amount/unit spacing, segmented controls and modeless device picker. This is not funded signing validation."
   },
   "benchmarks": "ledger-benchmarks.json",
   "known_issues": "known-issues.md"
