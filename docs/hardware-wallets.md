@@ -101,8 +101,10 @@ The rejection test checks that no signature was left behind.
 Nano S additionally passed trusted-parent 2-input/2-output P2PKH, partial P2PKH signing, and
 bare 2-of-2 multisig with synthetic coinbase parents. The owner confirmed no unverified-input
 warning in all three. Partial/multisig fixtures roundtrip signing JSON, preserve existing
-public-test-key signatures and verify new Ledger signatures. S Plus/X have not yet run these
-new fixtures; their earlier simple signatures do not certify the newer paths.
+public-test-key signatures and verify new Ledger signatures. S Plus/X subsequently passed the same partial and bare-multisig fixtures, with
+existing signatures preserved and no unverified-input warning confirmed by the owner.
+All three models also completed trusted 256- and 512-input P2PKH fixtures. See
+[measurements](hardware/ledger-benchmarks.json) and [Known Issues](hardware/known-issues.md).
 
 Additional physical checks: simultaneous S/S Plus identities, explicit locked responses,
 S Plus app opening and reconnect, and an exclusive-access conflict from a second probe process.
@@ -131,7 +133,7 @@ HID interface; others explicitly return `0x5515`. Missing, busy and locked are n
 [Ledger's app commands](https://developers.ledger.com/docs/device-interaction/dmk-ts/beginner/exchange_data)
 describe opening apps and the required user interactions.
 
-For small transactions, the adapter now streams full previous transactions to Ledger's trusted
+The adapter streams available full previous transactions to Ledger's trusted
 input protocol. It first checks parent hash, output index, amount and script. The device can then
 bind input amounts to those parents, avoiding the **unverified inputs** warning in the tested
 Nano S cases. This does not establish that parents are on-chain, unspent or mature.
@@ -144,16 +146,31 @@ Streaming is bounded by provisional host work budgets:
 
 | Model group | Inputs / outputs | Per-parent / total bytes | Max individual script | Parent APDU budget |
 | --- | --- | --- | --- | --- |
-| Nano S and historical models | 4 / 8 | 32 / 64 KiB | 8 KiB | 512 |
-| Nano S Plus / Nano X | 16 / 32 | 128 / 256 KiB | 32 KiB | 2048 |
+| Historical / unknown models | 4 / 8 | 32 / 64 KiB | 8 KiB | 512 |
+| Nano S | 512 / 32 | 64 / 512 KiB | 16 KiB | 8192 |
+| Nano S Plus / Nano X | 1024 / 128 | 512 / 2048 KiB | 128 KiB | 32768 |
 
-These are conservative engineering policies, **not measured firmware limits**. Only the small
-2-input/2-output fixture has physical trusted-input evidence so far. More inputs can be slow;
-progress identifies the current input. Missing parents or exceeding a budget prompts for
-explicit reduced verification; cancelling leaves signatures unchanged. A supplied in-budget
-parent with a wrong hash, amount or script is rejected. A device error during trusted processing
-never silently retries through the unverified route. The warning and weaker fee assurance remain
-when the owner explicitly chooses that route.
+These are host work policies, **not measured firmware limits**. All three models passed
+512-input fixtures with small synthetic parents; 1024 is an unmeasured policy allowance.
+More than 4 inputs on Nano S (16 on S Plus/X) asks for a waiting-time confirmation.
+This does not reduce verification. Parent bytes, script lengths and command count also
+matter, so input count alone cannot predict completion time.
+
+Every Ledger signing operation offers **Verify previous transactions on the device**,
+defaulting to on. Switching it off omits complete parents, not the current inputs/outputs,
+and requires an explicit reduced-verification confirmation. It is not persisted as a
+wallet-wide preference. Missing parents or exceeding a budget also prompts for that
+choice; cancelling leaves signatures unchanged. A supplied in-budget parent with a wrong
+hash, amount or script is rejected. A device error never silently switches to unverified
+signing. The warning and weaker fee assurance remain on the explicitly chosen reduced route.
+
+The Qt status window shows parent verification, current-transaction preparation, device
+review and per-input signing progress, plus elapsed time. A long request reuses one window.
+It does not claim a remaining-time estimate or prevent auto-lock. The 512-input S Plus
+retry took 487.5 seconds including review; 113.8 seconds were parent verification, 65.2
+current-input preparation and 278.9 signing commands. Earlier measurements exclude
+preparation and human review. [Known Issues](hardware/known-issues.md) records the preceding
+PIN-lock interruptions as well as the successful retry. No 400-input cutoff was added.
 
 “Nonstandard BSV transaction” is not a single capability. Message signing, P2PKH transactions,
 P2SH multisig, data outputs, large scripts and arbitrary contracts need distinct tests and device
@@ -205,7 +222,8 @@ been rewritten or reindexed by this work. The consensus boundary is visible in
 The base installation does not require the vendor SDKs. Optional groups are `hardware-ledger`,
 `hardware-trezor`, `hardware-keepkey`, `hardware-bitbox01`; `hardware` retains the aggregate set.
 For example, `python -m pip install '.[hardware-ledger]'`. Frozen builds collect adapter modules
-explicitly because imports are now lazy. We have not built/released signed installers here.
+explicitly because imports are now lazy. A local ad-hoc signed Universal macOS recipe is available in
+[LOCAL-BUILD.md](../contrib/osx/LOCAL-BUILD.md); it is not a notarized release.
 
 The existing SDK pins are compatibility baselines, not claims of the newest SDK. In particular,
 Trezor 0.12's interface and KeepKey/protobuf need separate modernization work. Historical macOS
@@ -231,9 +249,9 @@ is first. The probe is offline and has no broadcast operation. For the old macOS
 headless imports may need AppKit loaded first; the probe does this automatically. Building that
 pin locally may require Cython < 3 and setuptools < 66 with build isolation disabled.
 
-Final focused validation: **251 passed** (22 warnings), including the full database test module.
+Final focused validation: **383 passed** (22 warnings), including the full database test module.
 The isolated coinbase patch was also tested in a separate checkout: **62 passed**. Packaging
-metadata for all four optional vendor groups was parsed successfully; no signed installer was built.
+metadata for all four optional vendor groups was parsed successfully; no Developer ID-signed or notarized installer was built.
 
 Full-suite validation is not green in the inherited source: collection fails on the old
 cashaddr test importing an API removed from bitcoinx 0.9. The broader wallet/database selection
@@ -260,7 +278,28 @@ represent focused regression success as a clean full-suite run.
 
 Headless Qt tests cover worker ownership, cancellation, stale discovery completion, device
 selection, account paths, hash display and partial-input selection. Mock screens were inspected;
-these do not certify physical GUI/packaged builds. Still required: trusted-parent/partial/bare
-multisig on S Plus/X, P2SH multisig, same-model devices, real Ledger Wallet contention, measured
-large-input latency and packaged operating-system builds. Nano S's initial app-switch timeout
+these do not certify physical GUI hardware signing. Still required: P2SH multisig,
+same-model devices, real Ledger Wallet contention, large real-parent latency, and
+hardware signing through the packaged GUI. Nano S's initial app-switch timeout
 has not been reproduced or explained; later signing successes started with BCH already open.
+
+## Languages and desktop themes
+
+The new hardware prompts and System theme option have compiled translations in all 37
+shipped non-English catalogues. Chinese was reviewed in this patch; other newly filled
+translations are machine-generated drafts and still need native-language review. Existing
+valid translations are retained. `hardware.pot` is a scoped supplement, not a replacement
+for the full catalogue. Run `python -m contrib.compile_locales` with GNU gettext installed;
+this compilation is local and does not contact a translation service. Tests check coverage
+and preserve formatting placeholders. Norwegian's existing `no_NO` selector now resolves
+the shipped `nb_NO` catalogue; Traditional Chinese is selectable.
+
+Light and Dark now replace the complete palette, including link and placeholder colors.
+On macOS they also set this application's native appearance; System removes that override
+and follows the OS between Light and Dark. It never changes macOS preferences or selects
+Pink/Orange automatically. Existing manual preferences are preserved. Open form styles and
+legacy text-color state refresh on a switch. The existing tabs, page structure, fonts and
+visual identity remain; local fixes align labels, size fields and keep help glyphs readable.
+Palette tests cover at least 4.5:1 contrast for enabled Light/Dark text roles. Native macOS
+captures cover preferences, network and hardware dialogs in English and Chinese; simulated
+system-change tests are distinct from a real OS appearance-toggle test.

@@ -158,9 +158,10 @@
         "explicit_locked_response": "passed",
         "second_probe_access_conflict": "passed",
         "trusted_synthetic_coinbase_parents_2in_2out": "not_tested",
-        "partial_P2PKH_preserve_existing_signature_JSON_roundtrip": "not_tested",
-        "bare_2of2_multisig_preserve_cosigner_JSON_roundtrip": "not_tested",
-        "explicit_subset_of_owned_unsigned_inputs": "software_regression_only"
+        "partial_P2PKH_preserve_existing_signature_JSON_roundtrip": "passed_signatures_verified_owner_confirmed_no_unverified_warning",
+        "bare_2of2_multisig_preserve_cosigner_JSON_roundtrip": "passed_signatures_verified_owner_confirmed_no_unverified_warning",
+        "explicit_subset_of_owned_unsigned_inputs": "software_regression_only",
+        "trusted_P2PKH_256_and_512_inputs": "passed_signatures_verified_owner_confirmed_no_unverified_warning"
       }
     },
     {
@@ -182,9 +183,10 @@
         "funded_transaction_or_broadcast": "not_performed",
         "packaged_gui_end_to_end": "not_tested",
         "trusted_synthetic_coinbase_parents_2in_2out": "not_tested",
-        "partial_P2PKH_preserve_existing_signature_JSON_roundtrip": "not_tested",
-        "bare_2of2_multisig_preserve_cosigner_JSON_roundtrip": "not_tested",
-        "explicit_subset_of_owned_unsigned_inputs": "software_regression_only"
+        "partial_P2PKH_preserve_existing_signature_JSON_roundtrip": "passed_signatures_verified_owner_confirmed_no_unverified_warning",
+        "bare_2of2_multisig_preserve_cosigner_JSON_roundtrip": "passed_signatures_verified_owner_confirmed_no_unverified_warning",
+        "explicit_subset_of_owned_unsigned_inputs": "software_regression_only",
+        "trusted_P2PKH_256_and_512_inputs": "passed_signatures_verified_owner_confirmed_no_unverified_warning"
       }
     },
     {
@@ -212,7 +214,8 @@
         "trusted_synthetic_coinbase_parents_2in_2out": "passed_signatures_verified_owner_confirmed_no_unverified_warning",
         "partial_P2PKH_preserve_existing_signature_JSON_roundtrip": "passed_signatures_verified_owner_confirmed_no_unverified_warning",
         "bare_2of2_multisig_preserve_cosigner_JSON_roundtrip": "passed_signatures_verified_owner_confirmed_no_unverified_warning",
-        "explicit_subset_of_owned_unsigned_inputs": "software_regression_only"
+        "explicit_subset_of_owned_unsigned_inputs": "software_regression_only",
+        "trusted_P2PKH_256_and_512_inputs": "passed_signatures_verified_owner_confirmed_no_unverified_warning"
       }
     }
   ],
@@ -226,11 +229,11 @@
   "unresolved": [
     "Original coinbase construction/signing failure has not been reproduced from a failing transaction.",
     "Trusted verification budgets are provisional host policy, not measured maximum device capabilities.",
-    "Trusted-parent, partial and bare-multisig physical tests remain outstanding on S Plus/X.",
     "No physical Trezor, KeepKey or BitBox01 tests.",
     "No physical P2SH multisig, arbitrary-script or funded-transaction certification.",
     "No native PSBT reader/writer; external interface uses SVP signing JSON.",
-    "Existing full test suite is not green; see hardware-wallets.md."
+    "Existing full test suite is not green; see hardware-wallets.md.",
+    "Nano S Plus long-job PIN locking recurred, then a fresh-unlock 512-input retry passed; exact timer behavior is unresolved."
   ],
   "offline_fixtures": [
     {
@@ -284,7 +287,7 @@
   },
   "software_validation": {
     "focused_suite": {
-      "passed": 251,
+      "passed": 383,
       "warnings": 22,
       "physical_io": false
     },
@@ -292,9 +295,9 @@
       "passed": 62,
       "warnings": 22
     },
-    "qt_visual_review": "offscreen_mock_status_input_selection_message_hash",
+    "qt_visual_review": "native_macOS_mock_settings_network_hardware_English_Chinese_Light_Dark_and_simulated_System_changes",
     "optional_dependency_metadata": "four_vendor_groups_validated",
-    "signed_installer": "not_built",
+    "signed_installer": "local_adhoc_Universal_build_pending_final_rebuild_not_notarized",
     "coinbase_selected_tip_cases": [
       "same_height_fork_before_reward",
       "longer_fork_before_reward",
@@ -310,6 +313,14 @@
       "expected_failures": 22,
       "failures": 10,
       "failures_reproduced_in_unmodified_baseline": true
+    },
+    "localization": {
+      "catalogues": 37,
+      "messages": 140,
+      "coverage_and_placeholder_tests": "passed",
+      "non_Chinese_additions": "machine_translation_native_review_needed"
     }
-  }
+  },
+  "benchmarks": "ledger-benchmarks.json",
+  "known_issues": "known-issues.md"
 }
