@@ -1664,7 +1664,8 @@ class AbstractAccount:
         raise NotImplementedError
 
     def sign_transaction(self, tx: Transaction, password: str,
-            tx_context: Optional[TransactionContext]=None, *, input_indexes=None) -> None:
+            tx_context: Optional[TransactionContext]=None, *, input_indexes=None,
+            verify_inputs=True) -> None:
         if self.is_watching_only():
             return
         if input_indexes is not None and any(getattr(k, 'hw_type', None) != 'ledger'
@@ -1693,7 +1694,8 @@ class AbstractAccount:
                         for key in tx.inputs[i].unused_x_pubkeys())):
                     if isinstance(k, Hardware_KeyStore):
                         app_state.device_manager.hardware.sign_transaction(k, tx, password,
-                            tx_context, input_indexes=input_indexes)
+                            tx_context, input_indexes=input_indexes,
+                            verify_inputs=verify_inputs if k.hw_type == 'ledger' else True)
                     else:
                         k.sign_transaction(tx, password, tx_context)
             except UserCancelled:

@@ -59,7 +59,7 @@ class Backend:
 BACKENDS = {
     b.kind: b for b in (
         Backend('ledger', 'Ledger', 'electrumsv.devices.ledger', 'hardware-ledger', testnet=False,
-            optional_previous_inputs=16,
+            optional_previous_inputs=1024,
             signing=SigningCapabilities(frozenset({ScriptType.P2PKH, ScriptType.P2PK,
                 ScriptType.MULTISIG_P2SH, ScriptType.MULTISIG_BARE}), frozenset({0x41}))),
         Backend('trezor', 'Trezor', 'electrumsv.devices.trezor', 'hardware-trezor'),
@@ -236,7 +236,8 @@ class HardwareWallets:
         return bytes(signature)
 
     @device_operation
-    def sign_transaction(self, store, tx, password, context, *, input_indexes=None):
+    def sign_transaction(self, store, tx, password, context, *, input_indexes=None,
+            verify_inputs=True):
         backend = self.backend(store.hw_type)
         self.plugin(store.hw_type)
         if not backend.testnet and Net.COIN is not SVMainnet.COIN:
@@ -245,6 +246,9 @@ class HardwareWallets:
             raise HardwareError(_('Hardware signing requires SIGHASH_ALL | FORKID (0x41).'))
         if input_indexes is not None and store.hw_type != 'ledger':
             raise HardwareError(_('Selecting individual inputs is implemented for Ledger only.'))
+        if not verify_inputs and store.hw_type != 'ledger':
+            raise HardwareError(_('Optional previous-transaction verification is implemented '
+                'for Ledger only.'))
         # Never leave partial or malformed device results in the caller's transaction.
         try:
             request = prepare_signing_request(tx, context, store.is_signature_candidate,
@@ -253,10 +257,12 @@ class HardwareWallets:
             raise HardwareError(str(exc)) from exc
         candidate = deepcopy(tx)
         candidate_context = deepcopy(context)
-        if input_indexes is None:
-            store.sign_transaction(candidate, password, candidate_context)
-        else:
-            store.sign_transaction(candidate, password, candidate_context, input_indexes=input_indexes)
+        options = {}
+        if input_indexes is not None:
+            options['input_indexes'] = input_indexes
+        if not verify_inputs:
+            options['verify_inputs'] = False
+        store.sign_transaction(candidate, password, candidate_context, **options)
         if len(candidate.inputs) != len(tx.inputs):
             raise HardwareError(_('Device returned an unexpected input count.'))
         changes = []

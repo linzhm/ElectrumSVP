@@ -168,3 +168,36 @@ def test_cancelled_password_restores_transaction_signing_controls(gui):
     assert window.sign_tx.call_args.kwargs['input_indexes'] == {1}
     dialog.update.assert_called_once()
     window.pop_top_level_window.assert_called_once_with(dialog)
+
+
+def test_parent_verification_choice_is_reset_for_each_signing_operation(gui):
+    from electrumsv.gui.qt.hardware import LedgerSigningOptionsDialog
+    from electrumsv.tests.test_external_signing import transaction
+    tx, _ = transaction()
+    parent = QWidget()
+    first = LedgerSigningOptionsDialog(parent, tx)
+    assert first.verify_inputs.isChecked()
+    first.verify_inputs.setChecked(False)
+    first.accept()
+    second = LedgerSigningOptionsDialog(parent, tx)
+    assert second.verify_inputs.isChecked()
+    assert not first.verify_inputs.isChecked()
+
+
+def test_many_input_progress_updates_reuse_one_ledger_dialog(gui):
+    from electrumsv.devices.ledger.qt import Ledger_Handler
+    parent = QWidget()
+    parent.top_level_window = lambda: parent
+    handler = Ledger_Handler(parent)
+    handler.message_dialog('Verifying input 1 of 512')
+    dialog = handler.dialog
+    handler.message_dialog('Verifying input 512 of 512')
+    assert handler.dialog is dialog
+    assert handler._message_label.text() == 'Verifying input 512 of 512'
+    handler.progress_dialog('Signing input 256 of 512', 256, 512)
+    assert handler._progress.maximum() == 512
+    assert handler._progress.value() == 255
+    assert handler._operation_timer.isActive()
+    assert '00:00:' in handler._elapsed_label.text()
+    handler.clear_dialog()
+    assert not handler._operation_timer.isActive()

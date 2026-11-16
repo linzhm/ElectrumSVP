@@ -23,7 +23,21 @@ class VerificationBudget:
 
 # Conservative initial work budgets. They are NOT advertised maximum firmware capabilities.
 LEGACY_BUDGET = VerificationBudget(4, 8, 32768, 65536, 8192, 512)
-MODERN_BUDGET = VerificationBudget(16, 32, 131072, 262144, 32768, 2048)
+NANO_S_BUDGET = VerificationBudget(512, 32, 65536, 524288, 16384, 8192)
+MODERN_BUDGET = VerificationBudget(1024, 128, 524288, 2097152, 131072, 32768)
+
+
+def verification_budget(model):
+    if model in ('Nano S Plus', 'Nano X'):
+        return MODERN_BUDGET
+    if model == 'Nano S':
+        return NANO_S_BUDGET
+    return LEGACY_BUDGET
+
+
+def large_verification(tx, model):
+    # This threshold requests a patience/connection confirmation, not reduced verification.
+    return len(tx.inputs) > (16 if model in ('Nano S Plus', 'Nano X') else 4)
 
 
 @dataclass(frozen=True)
@@ -58,7 +72,7 @@ def parent_work(parent):
 
 
 def plan_input_verification(tx, context, model, app_version):
-    budget = MODERN_BUDGET if model in ('Nano S Plus', 'Nano X') else LEGACY_BUDGET
+    budget = verification_budget(model)
     if versiontuple(app_version) < (1, 4, 0):
         return InputVerification(reason=_('This app version is outside the trusted-input route.'))
     if len(tx.inputs) > budget.inputs or len(tx.outputs) > budget.outputs:

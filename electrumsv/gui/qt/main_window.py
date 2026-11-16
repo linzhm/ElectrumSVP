@@ -1731,6 +1731,17 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin):
             input_indexes=None) -> None:
         '''Sign the transaction in a separate thread.  When done, calls
         the callback with a success code of True or False.'''
+        window = window or self
+        verify_inputs = True
+        if any(getattr(store, 'hw_type', None) == 'ledger'
+                for store in self._account.get_keystores()):
+            from .hardware import LedgerSigningOptionsDialog
+            options = LedgerSigningOptionsDialog(window, tx)
+            if not options.exec_():
+                callback(False)
+                return
+            verify_inputs = options.verify_inputs.isChecked()
+
         def on_done(future: concurrent.futures.Future) -> None:
             try:
                 future.result()
@@ -1743,10 +1754,9 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin):
         def sign_tx(update_cb: WaitingUpdateCallback) -> None:
             nonlocal tx, password, tx_context
             self._account.sign_transaction(tx, password, tx_context=tx_context,
-                input_indexes=input_indexes)
+                input_indexes=input_indexes, verify_inputs=verify_inputs)
             update_cb(False, _("Done."))
 
-        window = window or self
         WaitingDialog(window, _('Signing transaction...'), sign_tx, on_done=on_done,
             title=_("Transaction signing"))
 

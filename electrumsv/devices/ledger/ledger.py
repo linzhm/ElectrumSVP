@@ -311,7 +311,7 @@ class Ledger_KeyStore(Hardware_KeyStore):
         # prompt for the PIN before displaying the dialog if necessary
         client = self.get_client()
         address_path = self.get_derivation()[2:] + "/{:d}/{:d}".format(*sequence)
-        self.handler.show_message("Signing message ...\r\nMessage hash: "+message_hash)
+        self.handler.show_message(_('Signing message...\nMessage hash: {}').format(message_hash))
         try:
             info = client.signMessagePrepare(address_path, message)
             pin = ""
@@ -346,18 +346,28 @@ class Ledger_KeyStore(Hardware_KeyStore):
 
     @set_and_unset_signing
     def sign_transaction(self, tx: Transaction, password: str,
-            tx_context: TransactionContext, *, input_indexes=None) -> None:
+            tx_context: TransactionContext, *, input_indexes=None, verify_inputs=True) -> None:
         if tx.is_complete():
             return
 
         assert self.handler is not None
-        from .input_verification import plan_input_verification
+        from .input_verification import InputVerification, plan_input_verification, large_verification
         from electrumsv.exceptions import UserCancelled
         session = self.get_client_electrum()
         client = session.dongleObject
         model = device_model(session._device) if session._device is not None else 'Ledger'
-        verification = plan_input_verification(tx, tx_context, model,
-            client.getFirmwareVersion()['version'])
+        verification = (plan_input_verification(tx, tx_context, model,
+            client.getFirmwareVersion()['version']) if verify_inputs else
+            InputVerification(reason=_('Previous-transaction verification was switched off '
+                'for this signing operation.')))
+        if verification.trusted and large_verification(tx, model):
+            if not self.handler.yes_no_question(
+                    _('Full verification of {} inputs will send {:.1f} KiB of previous '
+                      'transactions to your Ledger. Verification and signing may take several '
+                      'minutes. Keep the device connected and review the transaction on its '
+                      'screen when prompted. Continue with full verification?').format(
+                          len(tx.inputs), sum(map(len, verification.parents)) / 1024)):
+                raise UserCancelled()
         if not verification.trusted:
             if not self.handler.yes_no_question(verification.reason + '\n\n' +
                     _('The device cannot verify input amounts against previous transactions. '
@@ -424,8 +434,11 @@ class Ledger_KeyStore(Hardware_KeyStore):
                 txin = tx.inputs[i]
                 sequence = int_to_hex(utxo.sequence, 4)
                 if verification.trusted:
-                    self.handler.show_message(_('Verifying input {} of {} on your Ledger...')
-                        .format(i + 1, len(inputs)))
+                    message = _('Verifying input {} of {} on your Ledger...').format(i + 1, len(inputs))
+                    if hasattr(self.handler, 'show_progress'):
+                        self.handler.show_progress(message, i + 1, len(inputs))
+                    else:
+                        self.handler.show_message(message)
                     trusted = client.getTrustedInput(bitcoinTransaction(bytearray(
                         verification.parents[i])), txin.prev_idx)
                     trusted.update(witness=True, sequence=sequence)
@@ -435,17 +448,18 @@ class Ledger_KeyStore(Hardware_KeyStore):
                     chipInputs.append({'value': value_bytes, 'witness': True, 'sequence': sequence})
                 redeemScripts.append(utxo.script_sig)
 
-            self.handler.show_message(_('Review the transaction on your Ledger. '
-                'Input amounts were checked against previous transactions; chain status '
-                'and coinbase maturity are checked by the wallet.') if verification.trusted
-                else _('Review the transaction on your Ledger. Input amounts are unverified.'))
-
             # Sign all inputs
             inputIndex = 0
             rawTx = tx.serialize()
             client.enableAlternate2fa(False)
+            self.handler.show_message(_('Preparing the current transaction ({} inputs) '
+                'on your Ledger...').format(len(inputs)))
             client.startUntrustedTransaction(True, inputIndex, chipInputs,
                 redeemScripts[inputIndex], version=tx.version)
+            self.handler.show_message(_('Review the transaction on your Ledger. '
+                'Input amounts were checked against previous transactions; chain status '
+                'and coinbase maturity are checked by the wallet.') if verification.trusted
+                else _('Review the transaction on your Ledger. Input amounts are unverified.'))
             outputData = client.finalizeInputFull(txOutput)
             outputData['outputData'] = txOutput
             transactionOutput = outputData['outputData']
@@ -462,6 +476,11 @@ class Ledger_KeyStore(Hardware_KeyStore):
                 if inputsPaths[inputIndex] is None:
                     inputIndex += 1
                     continue
+                message = _('Signing input {} of {} on your Ledger...').format(inputIndex + 1, len(inputs))
+                if hasattr(self.handler, 'show_progress'):
+                    self.handler.show_progress(message, inputIndex + 1, len(inputs))
+                else:
+                    self.handler.show_message(message)
                 singleInput = [ chipInputs[inputIndex] ]
                 client.startUntrustedTransaction(
                     False, 0, singleInput, redeemScripts[inputIndex], version=tx.version)
@@ -477,6 +496,8 @@ class Ledger_KeyStore(Hardware_KeyStore):
         except BTChipException as e:
             if e.sw == 0x6985:  # cancelled by user
                 return
+            elif e.sw == 0x5515:
+                self.give_error(_('Ledger is locked. Enter your PIN on the device and retry.'), True)
             else:
                 logger.exception("")
                 self.give_error(e, True)

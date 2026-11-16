@@ -135,7 +135,9 @@ def test_display_checks_device_public_key_against_wallet(matching):
 
 @pytest.mark.parametrize('script_type', ['P2PKH', 'MULTISIG_BARE', 'MULTISIG_P2SH'])
 @pytest.mark.parametrize('explicit_selection', [False, True])
-def test_ledger_partial_signing_preserves_other_signatures(script_type, explicit_selection):
+@pytest.mark.parametrize('verify_inputs', [False, True])
+def test_ledger_partial_signing_preserves_other_signatures(script_type, explicit_selection,
+        verify_inputs, locked_after_first=False):
     from bitcoinx import PrivateKey, Script, hash160
     from electrumsv.constants import ScriptType
     from electrumsv.devices.hardware import HardwareWallets
@@ -182,10 +184,26 @@ def test_ledger_partial_signing_preserves_other_signatures(script_type, explicit
     store.get_client_electrum = lambda: SimpleNamespace(dongleObject=client, _device=None)
     manager = Mock()
     manager.get_plugin.return_value.libraries_available = True
+    if locked_after_first:
+        from copy import deepcopy
+        before = deepcopy(tx.to_dict(force_signing_metadata=True))
+        client.untrustedHashSign.side_effect = [
+            bytearray(key.sign(tx.preimage_hash(tx.inputs[0]), None) + b'\x41'),
+            ledger.BTChipException('Device locked', sw=0x5515)]
+        with pytest.raises(Exception, match='Ledger is locked'):
+            HardwareWallets(manager).sign_transaction(store, tx, '', context)
+        assert client.untrustedHashSign.call_count == 2
+        assert tx.to_dict(force_signing_metadata=True) == before
+        store.handler.finished.assert_called_once()
+        return
     HardwareWallets(manager).sign_transaction(store, tx, '', context,
-        input_indexes={1} if explicit_selection else None)
+        input_indexes={1} if explicit_selection else None, verify_inputs=verify_inputs)
     assert client.untrustedHashSign.call_count == len(targets)
-    assert client.getTrustedInput.call_count == 2  # Entire transaction remains committed.
+    assert client.getTrustedInput.call_count == (2 if verify_inputs else 0)
+    initial = client.startUntrustedTransaction.call_args_list[0]
+    assert len(initial.args[2]) == 2  # Current inputs remain committed even when parents are omitted.
+    if not verify_inputs:
+        store.handler.yes_no_question.assert_called_once()
     for (index, slot), signature in existing.items():
         assert tx.inputs[index].signatures[slot] == signature
     if explicit_selection:
@@ -202,3 +220,8 @@ def test_ledger_partial_signing_preserves_other_signatures(script_type, explicit
         # P2SH is a legacy pre-Genesis UTXO case on BSV.
         raw_tx.verify_inputs(utxos_after_genesis=[kind != ScriptType.MULTISIG_P2SH] * 2)
     assert all(call.kwargs['version'] == 2 for call in client.startUntrustedTransaction.call_args_list)
+
+
+def test_mid_signing_lock_keeps_existing_cosigner_and_discards_incomplete_device_result():
+    test_ledger_partial_signing_preserves_other_signatures(
+        'MULTISIG_BARE', False, True, locked_after_first=True)

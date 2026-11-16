@@ -215,7 +215,7 @@ def test_optional_parents_are_local_bounded_and_missing_does_not_block_review():
     support.add_available_parents([store], tx, context, lookup)
     assert context.prev_txs == {tx.inputs[0].prev_hash: parent}
     assert lookup.call_count == 2
-    tx.inputs *= 9  # Beyond every currently supported Ledger verification input budget.
+    tx.inputs *= 513  # Beyond every currently supported Ledger verification input budget.
     lookup.reset_mock()
     support.add_available_parents([store], tx, context, lookup)
     lookup.assert_not_called()

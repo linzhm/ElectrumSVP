@@ -1,7 +1,7 @@
 """Run device I/O while keeping Qt handlers and dialogs on the GUI thread."""
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtWidgets import (QAction, QLabel, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTreeWidget, QTreeWidgetItem, QLineEdit, QWidget)
+    QTreeWidget, QTreeWidgetItem, QLineEdit, QWidget, QCheckBox)
 
 from electrumsv.app_state import app_state
 from electrumsv.exceptions import UserCancelled
@@ -190,6 +190,38 @@ class MessageHashReview(QWidget):
             self.digest.setText(hashlib.sha256(message_edit.toPlainText().encode('utf8')).hexdigest().upper())
         message_edit.textChanged.connect(update)
         update()
+
+
+class LedgerSigningOptionsDialog(WindowModalDialog):
+    """Per-operation policy; never persist a reduced-verification preference."""
+    def __init__(self, parent, tx):
+        super().__init__(parent, _('Ledger signing options'))
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel(_('{} inputs · {} outputs').format(len(tx.inputs), len(tx.outputs))))
+        self.verify_inputs = QCheckBox(_('Verify previous transactions on the device (recommended)'))
+        self.verify_inputs.setChecked(True)
+        layout.addWidget(self.verify_inputs)
+        note = QLabel(_('When enabled, available complete previous transactions are sent to '
+            'the device to verify input amounts. Large transactions may take several minutes. '
+            'If data is missing or exceeds the device model’s work budget, you will be asked '
+            'before continuing with reduced verification.'))
+        note.setWordWrap(True)
+        layout.addWidget(note)
+        warning = QLabel(_('When disabled, complete previous transactions are not sent. '
+            'The device may show “unverified inputs” and cannot independently verify the fee. '
+            'The current transaction’s inputs and outputs are still sent, and every requested '
+            'input still needs its own signature. This may therefore remain slow.'))
+        warning.setWordWrap(True)
+        layout.addWidget(warning)
+        buttons = QHBoxLayout()
+        cancel = QPushButton(_('Cancel'))
+        cancel.clicked.connect(self.reject)
+        proceed = QPushButton(_('Continue to device'))
+        proceed.clicked.connect(self.accept)
+        buttons.addWidget(cancel)
+        buttons.addWidget(proceed)
+        layout.addLayout(buttons)
+        self.resize(560, 250)
 
 
 class SigningInputsDialog(WindowModalDialog):
