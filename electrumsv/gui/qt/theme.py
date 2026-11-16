@@ -1985,7 +1985,8 @@ def apply_theme(app, theme: Theme) -> None:
 
     app.setStyleSheet('')
     app.setPalette(theme_palette(theme))
-    app.setStyleSheet(stylesheet)
+    from .theme_controls import control_style
+    app.setStyleSheet(stylesheet + control_style(theme == Theme.DARK))
 
     dark = theme == Theme.DARK
 

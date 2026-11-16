@@ -123,3 +123,91 @@ def contrast(first, second):
 def test_light_and_dark_text_palette_has_readable_contrast(theme, foreground, background):
     palette = themes.theme_palette(theme)
     assert contrast(palette.color(foreground), palette.color(background)) >= 4.5
+
+
+@pytest.mark.parametrize('name', ['refresh_win10_16.png', 'icons8-filter-edit-32-windows.png',
+    'icons8-clear-filters-32-windows.png', 'icons8-export-32-windows.png',
+    'icons8-question-mark-96.png', 'sb_balance.png', 'sb_fiat.png', 'sb_network.png',
+    'sb_approximate.png'])
+def test_cached_action_icons_remain_visible_after_theme_switches(gui, name):
+    from PyQt5.QtGui import QIcon
+    from electrumsv.gui.qt.util import read_QIcon
+    icon = read_QIcon(name)
+    colors = []
+    for theme in [themes.Theme.LIGHT, themes.Theme.DARK, themes.Theme.LIGHT]:
+        themes.apply_theme(gui, theme)
+        image = icon.pixmap(32, 32, QIcon.Normal).toImage()
+        pixels = [image.pixelColor(x, y) for x in range(image.width())
+            for y in range(image.height()) if image.pixelColor(x, y).alpha() > 128]
+        assert pixels, name
+        color = pixels[0]
+        colors.append(color.name())
+        assert contrast(color, gui.palette().color(QPalette.Window)) >= 4.5
+    assert colors[0] == colors[2] and colors[0] != colors[1]
+
+
+@pytest.mark.parametrize('suffix', ['', '-windows-urgent', '-windows-plus',
+    '-windows-1', '-windows-2', '-windows-3', '-windows-4', '-windows-5'])
+def test_notification_outline_follows_theme_and_preserves_badge(gui, suffix):
+    from electrumsv.gui.qt.util import read_QIcon
+    name = 'icons8-topic-32' + suffix + '.png'
+    for theme in (themes.Theme.DARK, themes.Theme.LIGHT):
+        themes.apply_theme(gui, theme)
+        image = read_QIcon(name).pixmap(48, 48).toImage()
+        opaque = [image.pixelColor(x, y) for x in range(48) for y in range(48)
+            if image.pixelColor(x, y).alpha() > 240]
+        foreground = gui.palette().color(QPalette.WindowText)
+        assert any(color == foreground for color in opaque)
+        assert any(color.red() > 150 and color.green() < 100 for color in opaque) == bool(suffix)
+
+
+def test_status_bar_uses_live_icons_and_keeps_notification_inside_button(gui):
+    from PyQt5.QtWidgets import QMainWindow
+    from electrumsv.gui.qt.status_bar import StatusBar
+    from electrumsv.gui.qt.theme_icons import PaletteIconLabel
+    window = QMainWindow()
+    status = StatusBar(window)
+    window.setStatusBar(status)
+    status.set_balance_status('0 BSV', None)
+    status.set_network_status('Offline')
+    status.notification_widget.set_notification_state(1)
+    window.show()
+    for theme in (themes.Theme.DARK, themes.Theme.LIGHT):
+        themes.apply_theme(gui, theme)
+        gui.processEvents()
+        labels = status.findChildren(PaletteIconLabel)
+        assert len(labels) == 5
+        assert all(label.width() > 0 and label.height() > 0 for label in labels)
+        assert not status.grab().isNull()
+    window.close()
+
+
+@pytest.mark.parametrize('theme', [themes.Theme.LIGHT, themes.Theme.DARK])
+def test_amount_units_have_their_own_space_at_larger_fonts(gui, theme):
+    from electrumsv.gui.qt.amountedit import AmountEdit
+    themes.apply_theme(gui, theme)
+    edit = AmountEdit(lambda: 'Bitcoin', prefix='≈')
+    font = edit.font(); font.setPointSize(18); edit.setFont(font)
+    edit.setText('12345678.12345678')
+    edit.show(); gui.processEvents(); gui.processEvents()
+    margins = edit.textMargins()
+    available = edit.width() - margins.left() - margins.right() - 20
+    assert available >= edit.fontMetrics().horizontalAdvance(edit.text())
+    assert margins.right() > edit.fontMetrics().horizontalAdvance('Bitcoin')
+    assert edit.get_amount() == __import__('decimal').Decimal('12345678.12345678')
+    edit.close()
+
+
+def test_navigation_icons_are_scalable_and_selected_icons_are_white(gui):
+    from PyQt5.QtCore import QSize
+    from PyQt5.QtGui import QIcon
+    from electrumsv.gui.qt.theme_icons import NAVIGATION_ICONS, PaletteIconEngine
+    from electrumsv.gui.qt.util import icon_path
+    for name in NAVIGATION_ICONS:
+        engine = PaletteIconEngine(icon_path(name), selected_accent=True)
+        pixmap = engine.scaledPixmap(QSize(24, 24), QIcon.Normal, QIcon.On, 2)
+        assert pixmap.width() == 48 and pixmap.devicePixelRatioF() == 2
+        image = pixmap.toImage()
+        opaque = [image.pixelColor(x, y) for x in range(48) for y in range(48)
+            if image.pixelColor(x, y).alpha() > 240]
+        assert opaque and all(color.name() == '#ffffff' for color in opaque)

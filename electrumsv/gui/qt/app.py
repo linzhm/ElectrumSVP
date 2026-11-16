@@ -35,7 +35,7 @@ from typing import Callable, Optional
 from aiorpcx import run_in_thread
 import PyQt5.QtCore as QtCore
 from PyQt5.QtCore import pyqtSignal, QObject, QTimer, QEvent
-from PyQt5.QtGui import QGuiApplication
+from PyQt5.QtGui import QFontDatabase, QGuiApplication
 from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QWidget, QDialog
 
 from electrumsv.app_state import app_state
@@ -105,10 +105,12 @@ class SVApplication(QApplication):
 
     def __init__(self, argv):
         QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_X11InitThreads)
+        QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
         if hasattr(QGuiApplication, 'setDesktopFileName'):
             QGuiApplication.setDesktopFileName('electrum-sv.desktop')
 
         super().__init__(argv)
+        self.setFont(QFontDatabase.systemFont(QFontDatabase.GeneralFont))
 
         self._theme_controller = ThemeController(self, theme_preference_from_config(app_state.config))
         self._theme = self._theme_controller.effective

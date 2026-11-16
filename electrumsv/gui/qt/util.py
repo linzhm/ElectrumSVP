@@ -801,11 +801,12 @@ class ButtonsWidget(QWidget):
     def resizeButtons(self):
         frame_width = self.style().pixelMetric(QStyle.PM_DefaultFrameWidth)
         if self.buttons_mode == ButtonsMode.INTERNAL:
-            x = self.rect().right() - frame_width
-            y = self.rect().top() + frame_width
+            x = self.rect().right() - frame_width - 3
             for button in self.buttons:
                 sz = button.sizeHint()
                 x -= sz.width()
+                y = self.rect().top() + max(frame_width + 2,
+                    (min(self.height(), 34) - sz.height()) // 2)
                 button.move(x, y)
         elif self.buttons_mode == ButtonsMode.TOOLBAR_RIGHT:
             x = self.rect().right() - frame_width
@@ -830,10 +831,13 @@ class ButtonsWidget(QWidget):
         button.setIcon(read_QIcon(icon_name))
         # Horizontal buttons are inside the edit widget and do not have borders.
         if self.buttons_mode == ButtonsMode.INTERNAL:
-            button.setStyleSheet("QToolButton { border: none; hover {border: 1px} "
-                                "pressed {border: 1px} padding: 0px; }")
+            button.setProperty('theme_role', 'inline_action')
+            button.setIconSize(QSize(16, 16))
+            button.setMinimumSize(24, 24)
+            button.setFocusPolicy(Qt.StrongFocus)
         button.setVisible(True)
         button.setToolTip(tooltip)
+        button.setAccessibleName(tooltip)
         button.setCursor(QCursor(Qt.PointingHandCursor))
         button.clicked.connect(on_click)
         if insert:
@@ -1033,6 +1037,9 @@ def protected(func):
 
 
 def icon_path(icon_basename):
+    from .theme_icons import LUCIDE_ICONS
+    if icon_basename in LUCIDE_ICONS:
+        return resource_path('icons', 'lucide', LUCIDE_ICONS[icon_basename] + '.svg')
     return resource_path('icons', icon_basename)
 
 def read_qt_ui(ui_name):
@@ -1040,6 +1047,25 @@ def read_qt_ui(ui_name):
 
 @lru_cache()
 def read_QIcon(icon_basename):
+    from .theme_icons import (BadgedIconEngine, LUCIDE_ICONS, MONOCHROME_ICONS, NAVIGATION_ICONS,
+        NOTIFICATION_ICONS, PaletteIconEngine)
+    if icon_basename in NOTIFICATION_ICONS:
+        badge = icon_basename.removeprefix('icons8-topic-32').removesuffix('.png')
+        badge = badge.removeprefix('-windows-')
+        badge = {'urgent': '!', 'plus': '+'}.get(badge, badge)
+        return QIcon(BadgedIconEngine(resource_path('icons', 'lucide', 'bell.svg'), badge))
+    if icon_basename in ('hardware-none.svg', 'hardware-unavailable.svg',
+            'hardware-available.svg'):
+        badge, color = {'hardware-none.svg': ('cross', '#c83232'),
+            'hardware-unavailable.svg': ('!', '#956000'),
+            'hardware-available.svg': ('check', '#20864e')}[icon_basename]
+        return QIcon(BadgedIconEngine(resource_path('icons', 'lucide', 'usb.svg'), badge, color))
+    if (icon_basename in LUCIDE_ICONS or icon_basename in MONOCHROME_ICONS or
+            icon_basename in NOTIFICATION_ICONS or
+            icon_basename == 'icons8-question-mark-96.png'):
+        return QIcon(PaletteIconEngine(icon_path(icon_basename),
+            status_hint=icon_basename == 'icons8-question-mark-96.png',
+            selected_accent=icon_basename in NAVIGATION_ICONS))
     return QIcon(icon_path(icon_basename))
 
 def get_source_index(model_index: QModelIndex, klass: Any):
@@ -1142,6 +1168,8 @@ class FormSectionWidget(QWidget):
             self.minimum_label_width = minimum_label_width
 
         self.frame_layout = QVBoxLayout()
+        self.frame_layout.setContentsMargins(12, 12, 12, 12)
+        self.frame_layout.setSpacing(12)
         self._resizable_rows: List[QVBoxLayout] = []
 
         frame = QFrame()
@@ -1188,6 +1216,8 @@ class FormSectionWidget(QWidget):
             label = QLabel(label_text)
             result = label
         label.setObjectName("FormSectionLabel")
+        if isinstance(field_object, QWidget) and field_object.property('theme_role') == 'options':
+            label.setMinimumHeight(22)
         label.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
         if not isinstance(field_object, QLayout):
             label.setBuddy(field_object)
@@ -1200,7 +1230,8 @@ class FormSectionWidget(QWidget):
         grid_layout = QGridLayout()
         grid_layout.setContentsMargins(0, 0, 0, 0)
         grid_layout.addWidget(label, 0, 0,
-            Qt.AlignRight | (Qt.AlignTop if stretch_field else Qt.AlignVCenter))
+            Qt.AlignRight | (Qt.AlignTop if stretch_field and
+                not isinstance(field_object, QLayout) else Qt.AlignVCenter))
         if stretch_field:
             if isinstance(field_object, QLayout):
                 grid_layout.addLayout(field_object, 0, 1, Qt.AlignTop)

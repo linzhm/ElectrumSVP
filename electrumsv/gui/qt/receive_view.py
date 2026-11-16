@@ -47,8 +47,9 @@ class ReceiveView(QWidget):
         request_container = self.create_request_list_container()
 
         vbox = QVBoxLayout(self)
+        vbox.setContentsMargins(16, 16, 16, 16)
+        vbox.setSpacing(20)
         vbox.addLayout(form_layout)
-        vbox.addSpacing(0)
         vbox.addWidget(request_container, 1)
         self.setLayout(vbox)
 
@@ -64,7 +65,7 @@ class ReceiveView(QWidget):
         # The exchange rate plugin adds a fiat widget in column 2
         grid = QGridLayout()
         grid.setHorizontalSpacing(8)
-        grid.setVerticalSpacing(4)
+        grid.setVerticalSpacing(10)
         grid.setColumnStretch(3, 1)
 
         self._receive_destination_e = ButtonsLineEdit()
@@ -125,7 +126,7 @@ class ReceiveView(QWidget):
         self._receive_qr.link_to_window(self._toggle_qr_window)
 
         buttons = QHBoxLayout()
-        buttons.setSpacing(4)
+        buttons.setSpacing(8)
         buttons.addStretch(1)
         buttons.addWidget(self._save_request_button)
         buttons.addWidget(self._new_request_button)
@@ -152,7 +153,7 @@ class ReceiveView(QWidget):
 
         request_box = QGroupBox()
         request_box.setTitle(_('Requests'))
-        request_box.setAlignment(Qt.AlignCenter)
+        request_box.setAlignment(Qt.AlignLeft)
         request_box.setContentsMargins(0, 0, 0, 0)
         request_box.setLayout(layout)
         return request_box
