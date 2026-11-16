@@ -48,7 +48,7 @@ from bitcoinx import Bitcoin, P2PKH_Address
 
 from . import coinchooser
 from .app_state import app_state
-from .bitcoin import compose_chain_string, COINBASE_MATURITY, ScriptTemplate
+from .bitcoin import compose_chain_string, is_coinbase_mature, ScriptTemplate
 from .constants import (AccountType, CHANGE_SUBPATH, DEFAULT_TXDATA_CACHE_SIZE_MB, DerivationType,
     KeyInstanceFlag, KeystoreTextType, MAXIMUM_TXDATA_CACHE_SIZE_MB, MINIMUM_TXDATA_CACHE_SIZE_MB,
     RECEIVING_SUBPATH, ScriptType, TransactionOutputFlag, TxFlags, WalletEventFlag,
@@ -900,16 +900,23 @@ class AbstractAccount:
 
     def get_utxos(self, exclude_frozen=False, mature=False, confirmed_only=False) -> List[UTXO]:
         '''Note exclude_frozen=True checks for coin-level frozen status. '''
-        mempool_height = self._wallet.get_local_height() + 1
+        tip_height = self._wallet.get_local_height()
         def is_spendable_utxo(utxo):
             metadata = self.get_transaction_metadata(utxo.tx_hash)
+            if metadata is None:
+                return False
             if exclude_frozen and self.is_frozen_utxo(utxo):
                 return False
-            if confirmed_only and metadata.height <= 0:
+            if confirmed_only and (metadata.height is None or metadata.height <= 0):
                 return False
-            # A coin is spendable at height + COINBASE_MATURITY)
-            if mature and utxo.is_coinbase and \
-                    mempool_height < metadata.height + COINBASE_MATURITY:
+            if utxo.is_coinbase:
+                if metadata.height is None or metadata.height <= 0:
+                    return False
+                flags = self._wallet._transaction_cache.get_flags(utxo.tx_hash) or TxFlags.Unset
+                if mature and (not flags & TxFlags.StateSettled or
+                        not is_coinbase_mature(metadata.height, tip_height)):
+                    return False
+            elif not self._wallet.is_transaction_chain_valid(utxo.tx_hash):
                 return False
             return True
         with self._utxos_lock:
@@ -935,11 +942,21 @@ class AbstractAccount:
                     continue
                 o = self._utxos[k]
                 metadata = cast(TxData, self.get_transaction_metadata(o.tx_hash))
+                if metadata is None:
+                    continue
                 metadata_height = cast(int, metadata.height)
-                if o.is_coinbase and metadata_height + COINBASE_MATURITY > \
-                        self._wallet.get_local_height():
-                    x += o.value
-                elif metadata_height > 0:
+                if o.is_coinbase:
+                    if metadata_height is None or metadata_height <= 0:
+                        continue
+                    flags = self._wallet._transaction_cache.get_flags(o.tx_hash) or TxFlags.Unset
+                    if not flags & TxFlags.StateSettled or not is_coinbase_mature(metadata_height,
+                            self._wallet.get_local_height()):
+                        x += o.value
+                    else:
+                        c += o.value
+                elif not self._wallet.is_transaction_chain_valid(o.tx_hash):
+                    continue
+                elif metadata_height is not None and metadata_height > 0:
                     c += o.value
                 else:
                     u += o.value
@@ -1248,7 +1265,21 @@ class AbstractAccount:
             # The history is in immediately usable order. Transactions are listed in ascending
             # block height (height > 0), followed by the unconfirmed (height == 0) and then
             # those with unconfirmed parents (height < 0). [ (tx_hash, tx_height), ... ]
-            self._sync_state.set_key_history(keyinstance_id, hist)
+            removed_ids, _added_ids = self._sync_state.set_key_history(keyinstance_id, hist)
+            # A reward removed from every account's subscribed history cannot remain spendable
+            # at its old height, including when reconnecting after an offline reorg.
+            for removed_id in removed_ids:
+                if any(account._sync_state.get_transaction_key_ids(removed_id)
+                        for account in self._wallet.get_accounts()):
+                    continue
+                pending_event_count += 1
+                def reward_invalidated(exc_value):
+                    if exc_value is not None:
+                        raise exc_value
+                    on_event_completed()
+                if not self._wallet._transaction_cache.invalidate_coinbase(
+                        hex_str_to_hash(removed_id), completion_callback=reward_invalidated):
+                    pending_event_count -= 1
 
             adds = []
             updates = []
@@ -1334,7 +1365,8 @@ class AbstractAccount:
         history: List[Tuple[HistoryLine, int]] = []
         balance = 0
         for history_line in history_raw:
-            balance += history_line.value_delta
+            if self._wallet.is_transaction_chain_valid(history_line.tx_hash, for_spending=False):
+                balance += history_line.value_delta
             history.append((history_line, balance))
 
         history.reverse()
@@ -1429,6 +1461,10 @@ class AbstractAccount:
 
         if not utxos:
             raise NotEnoughFunds()
+        for utxo in utxos:
+            if not self._wallet.is_transaction_chain_valid(utxo.tx_hash):
+                raise ValueError(_('A selected coin depends on an unverified or immature mining '
+                    'reward. Wait for confirmation and maturity, then select coins again.'))
 
         if fixed_fee is None and config.fee_per_kb() is None:
             raise Exception('Dynamic fee estimates not available')
@@ -1632,6 +1668,9 @@ class AbstractAccount:
             tx_context: Optional[TransactionContext]=None) -> None:
         if self.is_watching_only():
             return
+        for txin in tx.inputs:
+            if not self._wallet.is_transaction_chain_valid(txin.prev_hash):
+                raise ValueError(_('An input depends on an unverified or immature mining reward.'))
 
         if tx_context is None:
             tx_context = TransactionContext()
@@ -2933,6 +2972,37 @@ class Wallet(TriggeredCallbacks):
     def get_transaction_cache(self) -> TransactionCache:
         return self._transaction_cache
 
+    def is_transaction_chain_valid(self, tx_hash: bytes, *, for_spending: bool=True) -> bool:
+        """Exclude known invalidated/immature coinbase ancestors, retaining all records.
+
+        This is a local eligibility check, not an unspentness proof for unknown external inputs.
+        Confirmed ordinary transactions end traversal; unsettled descendants must be checked.
+        """
+        pending, seen = [tx_hash], set()
+        tip = self.get_local_height()
+        while pending:
+            current = pending.pop()
+            if current in seen:
+                continue
+            seen.add(current)
+            metadata = self._transaction_cache.get_metadata(current)
+            flags = self._transaction_cache.get_flags(current)
+            if metadata is None or flags is None:
+                continue
+            # A nonzero verified block position proves this is not a coinbase.
+            if flags & TxFlags.StateSettled and metadata.position not in (None, 0):
+                continue
+            tx = self._transaction_cache.get_transaction(current)
+            if metadata.position == 0 or (tx is not None and tx.is_coinbase()):
+                if metadata.height is None or metadata.height <= 0:
+                    return False
+                if for_spending and (not flags & TxFlags.StateSettled or
+                        not is_coinbase_mature(metadata.height, tip)):
+                    return False
+            elif tx is not None and not flags & TxFlags.StateSettled:
+                pending.extend(txin.prev_hash for txin in tx.inputs)
+        return True
+
     def get_tx_height(self, tx_hash: bytes) -> Tuple[int, int, Union[int, bool]]:
         """ return the height and timestamp of a verified transaction. """
         metadata = self._transaction_cache.get_metadata(tx_hash)
@@ -3010,29 +3080,10 @@ class Wallet(TriggeredCallbacks):
         if self._stopped:
             self._logger.debug("add_transaction_proof on stopped wallet: %s", tx_id)
             return
-        entry = self._transaction_cache.get_entry(tx_hash, TxFlags.StateCleared) # HasHeight
-
-        # Ensure we are not verifying transactions multiple times.
-        if entry is None:
-            # We have proof now so regardless what TxState is, we can 'upgrade' it to StateSettled.
-            # This rests on the commitment that any of the following four tx States *will*
-            # Have tx bytedata i.e. "HasByteData" flag is set.
-            entry = self._transaction_cache.get_entry(tx_hash, TxFlags.STATE_UNCLEARED_MASK)
-            assert entry is not None, f"expected uncleared tx {hash_to_hex_str(tx_hash)}"
-            if entry.flags & TxFlags.HasByteData != 0:
-                self._logger.debug("Fast_tracking entry to StateSettled: %r", entry)
-            else:
-                self._logger.error("Transaction bytedata absent for %s %r", tx_id, entry)
-                return
-
-        # We only update a subset.
-        flags = TxFlags.HasHeight | TxFlags.HasPosition
-        data = TxData(height=height, position=position)
-        self._transaction_cache.update(
-            [ (tx_hash, data, None, flags | TxFlags.StateSettled) ])
-
         proof = TxProof(proof_position, proof_branch)
-        self._transaction_cache.update_proof(tx_hash, proof)
+        if not self._transaction_cache.settle_verified(tx_hash, height, position, proof):
+            self._logger.debug('Ignoring stale or unavailable transaction proof: %s', tx_id)
+            return
 
         # Build BEEF immediately after the proof is stored.
         try:
@@ -3230,6 +3281,9 @@ class Wallet(TriggeredCallbacks):
         reorg_count, updated_tx_hashes = self._transaction_cache.apply_reorg(above_height)
         self._logger.info(
             f'removing verification of {reorg_count} transactions above {above_height}')
+        for tx_hash in updated_tx_hashes:
+            self.trigger_callback('verified', tx_hash, 0, 0, False)
+        self.txs_changed_event.set()
 
         if self._storage.get('deactivate_used_keys', False):
             for account in self._accounts.values():

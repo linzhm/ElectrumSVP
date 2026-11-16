@@ -87,11 +87,11 @@ class HistoryListTests(unittest.TestCase):
 
         tx_hash = os.urandom(32)
 
-        height = (local_height - COINBASE_MATURITY) + 1
+        height = (local_height - COINBASE_MATURITY) + 2
         status = get_tx_status(account, tx_hash, height, confs, timestamp)
         self.assertEqual(TxStatus.UNMATURED, status)
 
-        height = (local_height - COINBASE_MATURITY)
+        height = (local_height - COINBASE_MATURITY) + 1
         status = get_tx_status(account, tx_hash, height, confs, timestamp)
         self.assertEqual(TxStatus.FINAL, status)
 

@@ -37,7 +37,7 @@ from PyQt5.QtGui import QBrush, QIcon, QColor, QFont
 from PyQt5.QtWidgets import QLabel, QMenu, QTreeWidgetItem, QVBoxLayout, QWidget
 
 from electrumsv.app_state import app_state
-from electrumsv.bitcoin import COINBASE_MATURITY
+from electrumsv.bitcoin import is_coinbase_mature
 from electrumsv.constants import TxFlags
 from electrumsv.i18n import _
 from electrumsv.logs import logs
@@ -70,6 +70,7 @@ class TxStatus(enum.IntEnum):
     UNVERIFIED = 2
     UNMATURED = 3
     FINAL = 4
+    REWARD_UNVERIFIED = 5
 
 TX_ICONS = [
     "icons8-question-mark-96.png",      # Missing.
@@ -77,6 +78,7 @@ TX_ICONS = [
     "icons8-checkmark-grey-52.png",     # Unverified.
     "icons8-lock-96.png",               # Unmatured.
     "icons8-checkmark-green-52.png",    # Confirmed / verified.
+    "icons8-question-mark-96.png",     # Reward with no current verified block.
 ]
 
 TX_STATUS = {
@@ -85,6 +87,7 @@ TX_STATUS = {
     TxStatus.UNCONFIRMED: _('Unconfirmed'),
     TxStatus.UNMATURED: _('Unmatured'),
     TxStatus.UNVERIFIED: _('Unverified'),
+    TxStatus.REWARD_UNVERIFIED: _('Mining reward is not in a verified block'),
 }
 
 # This was intended to see if increasing the cell height would cause the monospace fonts to be
@@ -407,8 +410,14 @@ def get_tx_status(account: AbstractAccount, tx_hash: bytes, height: int, conf: i
         return TxStatus.MISSING
 
     metadata = account.get_transaction_metadata(tx_hash)
+    if metadata.position is None:
+        tx = account.get_transaction(tx_hash)
+        if tx is not None and tx.is_coinbase():
+            return TxStatus.REWARD_UNVERIFIED
     if metadata.position == 0:
-        if height + COINBASE_MATURITY > account._wallet.get_local_height():
+        if conf == 0 or height <= 0:
+            return TxStatus.REWARD_UNVERIFIED
+        if not is_coinbase_mature(height, account._wallet.get_local_height()):
             return TxStatus.UNMATURED
     elif conf == 0:
         if height > 0:
@@ -418,7 +427,7 @@ def get_tx_status(account: AbstractAccount, tx_hash: bytes, height: int, conf: i
     return TxStatus.FINAL
 
 def get_tx_desc(status: TxStatus, timestamp: Union[bool, int]) -> str:
-    if status in [ TxStatus.UNCONFIRMED, TxStatus.MISSING ]:
+    if status in [ TxStatus.UNCONFIRMED, TxStatus.MISSING, TxStatus.REWARD_UNVERIFIED ]:
         return TX_STATUS[status]
     return format_time(timestamp, _("unknown")) if timestamp else _("unknown")
 
